@@ -4,12 +4,12 @@ import {
     Upload, Zap, Shield, Globe, Settings,
     ChevronRight, CheckCircle, Lock, Sparkles,
     Code, Database, GitBranch, BookOpen,
-    BarChart, Target, Languages, Palette
+    BarChart, Target, Languages, Palette, Copy, Download
 } from 'lucide-react';
 import './App.css';
 
 function App() {
-    // 状态管理 - 补充缺失的状态
+    // 状态管理
     const [currentModule, setCurrentModule] = useState('home');
     const [activeSubModule, setActiveSubModule] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -18,17 +18,17 @@ function App() {
     const [taskId, setTaskId] = useState(null);
     const [taskStatus, setTaskStatus] = useState(null);
     const [pollingInterval, setPollingInterval] = useState(null);
-    const [uploadProgress, setUploadProgress] = useState(0); // 补充缺失的状态
-    const [text, setText] = useState(''); // 补充缺失的状态
-    const [summary, setSummary] = useState(''); // 新增：存储摘要结果
-    const [summaryType, setSummaryType] = useState('document'); // 新增：摘要类型
-    const [summaryLength, setSummaryLength] = useState('standard'); // 新增：摘要长度
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [text, setText] = useState('');
+    const [summaryType, setSummaryType] = useState('document');
+    const [summaryLength, setSummaryLength] = useState('standard');
     const [englishSummary, setEnglishSummary] = useState('');
     const [chineseSummary, setChineseSummary] = useState('');
-    const [outputLanguage, setOutputLanguage] = useState('auto'); // auto, bilingual
-    // 模块数据（保持不变）
+    const [outputLanguage, setOutputLanguage] = useState('auto');
+    const [exampleMode, setExampleMode] = useState(false); // 示例模式状态
+
+    // 模块数据
     const modules = [
-        // ... 原有模块数据 ...
         {
             id: 'parse',
             name: '多格式文档解析',
@@ -101,7 +101,13 @@ function App() {
         }
     ];
 
-    // 处理文件上传 - 完善逻辑
+    // 示例摘要数据
+    const exampleSummary = {
+        chinese: "本周重点学习了数据结构中的线索树和树的遍历算法，包括前序、中序、后序遍历及层序遍历。学习过程中遇到的主要问题是时间不足导致练习不够，以及树操作的代码实现不够熟练。下周计划学习哈希表、平衡二叉树等数据结构，并加强算法刷题训练，每天保证至少2小时的练习时间。",
+        english: "This week, I focused on learning threaded trees and tree traversal algorithms in data structures, including pre-order, in-order, post-order, and level-order traversals. The main challenges encountered were insufficient practice time and unskilled implementation of tree operation code. Next week, I plan to learn data structures such as hash tables and AVL trees, and strengthen algorithm practice with at least 2 hours of daily training."
+    };
+
+    // 处理文件上传
     const handleFileUpload = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -109,16 +115,13 @@ function App() {
         setUploadedFile(file);
         setUploadProgress(0);
         setIsProcessing(true);
+        setExampleMode(false); // 退出示例模式
 
         console.log('上传按钮被点击了，文件:', file);
         const formData = new FormData();
         formData.append('file', file);
 
-
-
-        console.log('准备发起 fetch 请求');
         try {
-            // 开始上传
             const response = await fetch('http://localhost:5000/api/upload/', {
                 method: 'POST',
                 body: formData
@@ -160,13 +163,23 @@ function App() {
 
     // 处理文档生成摘要
     const processDocument = async () => {
-        if (!fileId) {
+        if (!fileId && !exampleMode) {
             alert('请先上传文件！');
             return;
         }
 
         setIsProcessing(true);
         setTaskStatus('processing');
+
+        // 如果是示例模式，直接展示示例数据
+        if (exampleMode) {
+            setChineseSummary(exampleSummary.chinese);
+            setEnglishSummary(exampleSummary.english);
+            setIsProcessing(false);
+            setTaskStatus('completed');
+            alert('示例摘要加载成功！');
+            return;
+        }
 
         try {
             const response = await fetch(
@@ -186,12 +199,11 @@ function App() {
             setTaskStatus('failed');
         }
     };
+
     // 轮询任务状态
     const startPollingTaskStatus = (taskId) => {
-        // 清除现有轮询
         if (pollingInterval) clearInterval(pollingInterval);
 
-        // 创建新轮询
         const interval = setInterval(async () => {
             try {
                 const response = await fetch(`http://localhost:5000/api/task/${taskId}`);
@@ -200,15 +212,11 @@ function App() {
                 const data = await response.json();
                 setTaskStatus(data.status);
 
-                // 如果任务完成
                 if (data.status === 'completed') {
                     clearInterval(interval);
                     setIsProcessing(false);
-                    // 获取摘要结果
                     await fetchSummary(taskId);
-                }
-                // 如果任务失败
-                else if (data.status === 'failed') {
+                } else if (data.status === 'failed') {
                     clearInterval(interval);
                     setIsProcessing(false);
                     alert('任务处理失败: ' + (data.error || '未知错误'));
@@ -217,7 +225,7 @@ function App() {
             } catch (error) {
                 console.error('轮询任务状态错误:', error);
             }
-        }, 2000); // 每2秒轮询一次
+        }, 2000);
 
         setPollingInterval(interval);
     };
@@ -229,13 +237,41 @@ function App() {
             if (!response.ok) throw new Error('获取摘要失败');
 
             const data = await response.json();
-            setEnglishSummary(data.summary.english || '');
-            setChineseSummary(data.summary.chinese || '');
+            setChineseSummary(data.chinese || data.summary?.chinese || '');
+            setEnglishSummary(data.english || data.summary?.english || '');
             alert('摘要生成成功！');
         } catch (error) {
             console.error('获取摘要错误:', error);
             alert('获取摘要失败: ' + error.message);
         }
+    };
+
+    // 查看示例
+    const handleViewExample = () => {
+        setExampleMode(true);
+        setChineseSummary('');
+        setEnglishSummary('');
+        // 展示示例摘要
+        processDocument();
+    };
+
+    // 复制摘要
+    const copySummary = (textToCopy) => {
+        navigator.clipboard.writeText(textToCopy)
+            .then(() => alert('摘要复制成功！'))
+            .catch(() => alert('复制失败，请手动复制'));
+    };
+
+    // 导出摘要
+    const exportSummary = () => {
+        const content = `### 中文摘要\n${chineseSummary}\n\n### 英文摘要\n${englishSummary}`;
+        const blob = new Blob([content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `文档摘要_${new Date().getTime()}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     // 清理轮询
@@ -245,7 +281,7 @@ function App() {
         };
     }, [pollingInterval]);
 
-    // 渲染模块内容 - 完善UI交互
+    // 渲染模块内容
     const renderModuleContent = () => {
         const module = modules.find(m => m.id === currentModule);
 
@@ -295,7 +331,7 @@ function App() {
                                 <p className="text-gray-400 text-sm mb-4">AI深度理解文档内容</p>
                                 <button
                                     onClick={processDocument}
-                                    disabled={!fileId || isProcessing}
+                                    disabled={(!fileId && !exampleMode) || isProcessing}
                                     className="px-4 py-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30 rounded-lg transition-all disabled:opacity-50"
                                 >
                                     {isProcessing ? '分析中...' : '开始分析'}
@@ -309,10 +345,11 @@ function App() {
                                 <h3 className="text-xl font-semibold text-white mb-2">获取摘要</h3>
                                 <p className="text-gray-400 text-sm mb-4">精准提取核心内容</p>
                                 <button
-                                    disabled={!taskId || taskStatus !== 'completed' || isProcessing}
+                                    onClick={handleViewExample}
+                                    disabled={isProcessing}
                                     className="px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 rounded-lg transition-all disabled:opacity-50"
                                 >
-                                    {summary ? '查看摘要' : '生成摘要'}
+                                    查看示例
                                 </button>
                             </div>
                         </div>
@@ -342,48 +379,90 @@ function App() {
                             </div>
                         )}
 
-                        {/* 摘要结果显示 */}
-                        {summary && (
-                            <div className="mt-8 p-6 bg-gray-800/50 rounded-xl border border-emerald-500/20">
-                                <h3 className="text-xl font-bold mb-4 text-emerald-400">智能摘要结果</h3>
-                                <div className="text-gray-200 whitespace-pre-line">{summary}</div>
-
-                                {/* 摘要配置选项 */}
-                                <div className="mt-6 grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">摘要类型</label>
-                                        <select
-                                            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
-                                            value={summaryType}
-                                            onChange={(e) => setSummaryType(e.target.value)}
-                                        >
-                                            <option value="document">文档级摘要</option>
-                                            <option value="chapter">章节级摘要</option>
-                                            <option value="paragraph">段落级摘要</option>
-                                            <option value="code">代码级摘要</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">摘要长度</label>
-                                        <select
-                                            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
-                                            value={summaryLength}
-                                            onChange={(e) => setSummaryLength(e.target.value)}
-                                        >
-                                            <option value="concise">简洁 (50-100字)</option>
-                                            <option value="standard">标准 (100-200字)</option>
-                                            <option value="detailed">详细 (200-300字)</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={processDocument}
-                                    className="mt-4 px-6 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 rounded-lg"
+                        {/* 摘要配置选项 */}
+                        <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-1">摘要类型</label>
+                                <select
+                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                    value={summaryType}
+                                    onChange={(e) => setSummaryType(e.target.value)}
                                 >
-                                    重新生成摘要
-                                </button>
+                                    <option value="document">文档级摘要</option>
+                                    <option value="chapter">章节级摘要</option>
+                                    <option value="paragraph">段落级摘要</option>
+                                    <option value="code">代码级摘要</option>
+                                </select>
                             </div>
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-1">摘要长度</label>
+                                <select
+                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                    value={summaryLength}
+                                    onChange={(e) => setSummaryLength(e.target.value)}
+                                >
+                                    <option value="concise">简洁 (50-100字)</option>
+                                    <option value="standard">标准 (100-200字)</option>
+                                    <option value="detailed">详细 (200-300字)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-1">输出语言</label>
+                                <select
+                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                    value={outputLanguage}
+                                    onChange={(e) => setOutputLanguage(e.target.value)}
+                                >
+                                    <option value="auto">自动双语</option>
+                                    <option value="chinese">仅中文</option>
+                                    <option value="english">仅英文</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* 中文摘要 */}
+                        {chineseSummary && (
+                            <div className="mt-8 p-6 bg-gray-800/50 rounded-xl border border-emerald-500/20">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-xl font-bold text-emerald-400">中文摘要结果</h3>
+                                    <button
+                                        onClick={() => copySummary(chineseSummary)}
+                                        className="flex items-center gap-2 px-3 py-1 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                                    >
+                                        <Copy className="w-4 h-4" />
+                                        复制
+                                    </button>
+                                </div>
+                                <div className="text-gray-200 whitespace-pre-line">{chineseSummary}</div>
+                            </div>
+                        )}
+
+                        {/* 英文摘要 */}
+                        {englishSummary && (
+                            <div className="mt-4 p-6 bg-gray-800/50 rounded-xl border border-blue-500/20">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-xl font-bold text-blue-400">English Summary</h3>
+                                    <button
+                                        onClick={() => copySummary(englishSummary)}
+                                        className="flex items-center gap-2 px-3 py-1 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                                    >
+                                        <Copy className="w-4 h-4" />
+                                        Copy
+                                    </button>
+                                </div>
+                                <div className="text-gray-200 whitespace-pre-line">{englishSummary}</div>
+                            </div>
+                        )}
+
+                        {/* 导出按钮 */}
+                        {(chineseSummary || englishSummary) && (
+                            <button
+                                onClick={exportSummary}
+                                className="mt-6 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl font-semibold transition-all flex items-center gap-2 mx-auto"
+                            >
+                                <Download className="w-5 h-5" />
+                                导出摘要
+                            </button>
                         )}
                     </div>
 
@@ -408,7 +487,7 @@ function App() {
             );
         }
 
-        // 模块内容页面（保持原有逻辑，补充交互）
+        // 模块内容页面
         return (
             <div className="space-y-8">
                 {/* 模块标题 */}
@@ -539,20 +618,29 @@ function App() {
                                     </div>
 
                                     {/* 分析按钮 */}
-                                    <button
-                                        onClick={processDocument}
-                                        disabled={!fileId || isProcessing}
-                                        className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl font-semibold transition-all disabled:opacity-50"
-                                    >
-                                        {isProcessing ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                分析中...
-                                            </div>
-                                        ) : (
-                                            '开始智能分析'
-                                        )}
-                                    </button>
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={processDocument}
+                                            disabled={(!fileId && !exampleMode) || isProcessing}
+                                            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl font-semibold transition-all disabled:opacity-50 flex-1"
+                                        >
+                                            {isProcessing ? (
+                                                <div className="flex items-center gap-2 justify-center">
+                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                    分析中...
+                                                </div>
+                                            ) : (
+                                                '开始智能分析'
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={handleViewExample}
+                                            disabled={isProcessing}
+                                            className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors flex-1"
+                                        >
+                                            查看示例
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -589,42 +677,72 @@ function App() {
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-300 mb-1">摘要风格</label>
-                                                    <select className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white">
-                                                        <option>技术性</option>
-                                                        <option>通俗易懂</option>
-                                                        <option>专业报告</option>
+                                                    <label className="block text-sm font-medium text-gray-300 mb-1">输出语言</label>
+                                                    <select
+                                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white"
+                                                        value={outputLanguage}
+                                                        onChange={(e) => setOutputLanguage(e.target.value)}
+                                                    >
+                                                        <option value="auto">自动双语</option>
+                                                        <option value="chinese">仅中文</option>
+                                                        <option value="english">仅英文</option>
                                                     </select>
                                                 </div>
                                             </div>
 
-                                            <button
-                                                onClick={processDocument}
-                                                disabled={!fileId || isProcessing}
-                                                className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-xl font-semibold transition-all disabled:opacity-50"
-                                            >
-                                                {isProcessing ? '生成中...' : '生成摘要'}
-                                            </button>
+                                            <div className="flex gap-4">
+                                                <button
+                                                    onClick={processDocument}
+                                                    disabled={(!fileId && !exampleMode) || isProcessing}
+                                                    className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-xl font-semibold transition-all disabled:opacity-50"
+                                                >
+                                                    {isProcessing ? '生成中...' : '生成摘要'}
+                                                </button>
+                                                <button
+                                                    onClick={handleViewExample}
+                                                    disabled={isProcessing}
+                                                    className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors"
+                                                >
+                                                    查看示例
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div className="space-y-4">
                                             <h3 className="text-lg font-semibold text-white">摘要结果</h3>
+
+                                            {/* 中文摘要 */}
                                             <div className="bg-gray-900/50 rounded-lg p-4 min-h-40">
-                                                {summary ? (
-                                                    <div className="text-gray-200 whitespace-pre-line">{summary}</div>
+                                                {chineseSummary ? (
+                                                    <div className="text-gray-200 whitespace-pre-line">{chineseSummary}</div>
                                                 ) : (
                                                     <div className="text-gray-500 flex items-center justify-center h-32">
-                                                        {!fileId ? '请先上传文件' : '点击生成按钮获取摘要'}
+                                                        {!fileId && !exampleMode ? '请先上传文件或查看示例' : '点击生成按钮获取摘要'}
                                                     </div>
                                                 )}
                                             </div>
 
-                                            {summary && (
+                                            {/* 英文摘要 */}
+                                            {englishSummary && (
+                                                <div className="bg-gray-900/50 rounded-lg p-4 min-h-20 mt-4">
+                                                    <div className="text-gray-200 whitespace-pre-line">{englishSummary}</div>
+                                                </div>
+                                            )}
+
+                                            {(chineseSummary || englishSummary) && (
                                                 <div className="flex gap-3">
-                                                    <button className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">
-                                                        复制摘要
+                                                    <button
+                                                        onClick={() => copySummary(`${chineseSummary}\n\n${englishSummary}`)}
+                                                        className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                                    >
+                                                        <Copy className="w-4 h-4" />
+                                                        复制全部
                                                     </button>
-                                                    <button className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">
+                                                    <button
+                                                        onClick={exportSummary}
+                                                        className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                                    >
+                                                        <Download className="w-4 h-4" />
                                                         导出摘要
                                                     </button>
                                                 </div>
@@ -636,10 +754,18 @@ function App() {
 
                             {/* 通用操作按钮 */}
                             <div className="flex gap-4 pt-6 border-t border-gray-700/50">
-                                <button className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-xl font-semibold transition-all">
-                                    开始处理
+                                <button
+                                    onClick={processDocument}
+                                    disabled={(!fileId && !exampleMode) || isProcessing}
+                                    className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-xl font-semibold transition-all disabled:opacity-50"
+                                >
+                                    {isProcessing ? '处理中...' : '开始处理'}
                                 </button>
-                                <button className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors">
+                                <button
+                                    onClick={handleViewExample}
+                                    disabled={isProcessing}
+                                    className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors"
+                                >
                                     查看示例
                                 </button>
                             </div>
@@ -650,7 +776,7 @@ function App() {
         );
     };
 
-    // 背景网格组件（保持不变）
+    // 背景网格组件
     const BackgroundGrid = () => {
         const techWords = [
             "AI解析", "智能摘要", "文档理解", "知识增强",
@@ -659,7 +785,6 @@ function App() {
 
         return (
             <div className="fixed inset-0 z-0 overflow-hidden">
-                {/* 网格背景 */}
                 <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-900">
                     <div className="absolute inset-0 opacity-20" style={{
                         backgroundImage: `linear-gradient(to right, #0ea5e9 1px, transparent 1px),
@@ -668,7 +793,6 @@ function App() {
                     }}></div>
                 </div>
 
-                {/* 浮动科技词汇 */}
                 {techWords.map((word, index) => {
                     const colors = ['text-cyan-400', 'text-blue-400', 'text-purple-400'];
                     const colorClass = colors[index % colors.length];
@@ -804,6 +928,12 @@ function App() {
                                             <CheckCircle className="w-4 h-4 text-emerald-400" />
                                         </div>
                                     )}
+                                    {exampleMode && (
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-300">示例模式</span>
+                                            <Sparkles className="w-4 h-4 text-purple-400" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -829,22 +959,6 @@ function App() {
                     <div className="flex-1">
                         <div className="bg-gradient-to-br from-gray-900/60 to-black/60 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-8">
                             {renderModuleContent()}
-                            {/* ========== 新增：中英文摘要展示区域 ========== */}
-                            {/* 中文摘要 */}
-                            {chineseSummary && (
-                                <div className="mt-8 p-6 bg-gray-800/50 rounded-xl border border-emerald-500/20">
-                                    <h3 className="text-xl font-bold mb-4 text-emerald-400">中文摘要结果</h3>
-                                    <div className="text-gray-200 whitespace-pre-line">{chineseSummary}</div>
-                                </div>
-                            )}
-
-                            {/* 英文摘要 */}
-                            {englishSummary && (
-                                <div className="mt-4 p-6 bg-gray-800/50 rounded-xl border border-blue-500/20">
-                                    <h3 className="text-xl font-bold mb-4 text-blue-400">English Summary</h3>
-                                    <div className="text-gray-200 whitespace-pre-line">{englishSummary}</div>
-                                </div>
-                            )}
                         </div>
 
                         {/* 页脚 */}
@@ -862,16 +976,16 @@ function App() {
                     0%, 100% { transform: translateY(0) translateX(0); opacity: 0.1; }
                     50% { transform: translateY(-20px) translateX(10px); opacity: 0.2; }
                 }
-                
+
                 @keyframes pulse-glow {
                     0%, 100% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.3); }
                     50% { box-shadow: 0 0 40px rgba(6, 182, 212, 0.5); }
                 }
-                
+
                 .gradient-border {
                     border: 2px solid transparent;
                     background: linear-gradient(black, black) padding-box,
-                              linear-gradient(45deg, #06b6d4, #3b82f6) border-box;
+                    linear-gradient(45deg, #06b6d4, #3b82f6) border-box;
                 }
             `}</style>
         </div>
