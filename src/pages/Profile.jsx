@@ -14,7 +14,10 @@ const Profile = ({ user, logout, onGoToLogin }) => {
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [saving, setSaving] = useState(false);
-
+    // ✅ 新增：个性化配置状态
+    const [summaryStyle, setSummaryStyle] = useState('standard');
+    const [defaultLanguage, setDefaultLanguage] = useState('chinese');
+    const [savingPrefs, setSavingPrefs] = useState(false);
     const userData = user || {
         username: '456',
         email: '456@example.com',
@@ -79,7 +82,35 @@ const Profile = ({ user, logout, onGoToLogin }) => {
             setSaving(false);
         }
     };
+// 保存个性化配置
+    const handleSavePreferences = async () => {
+        setSavingPrefs(true);
+        try {
+            const formData = new FormData();
+            formData.append('summary_style', summaryStyle);
+            formData.append('default_language', defaultLanguage);
 
+            const res = await fetch('http://localhost:8000/api/save-preferences', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token || localStorage.getItem('token')}`
+                },
+                body: formData
+            });
+
+            if (res.ok) {
+                alert('个性化配置保存成功！');
+            } else {
+                const err = await res.json();
+                alert(`保存失败：${err.detail || '未知错误'}`);
+            }
+        } catch (err) {
+            console.error('保存偏好配置失败:', err);
+            alert('网络错误，请稍后重试');
+        } finally {
+            setSavingPrefs(false);
+        }
+    };
     if (!user) {
         return (
             <div className="space-y-8 w-full p-6">
@@ -275,22 +306,34 @@ const Profile = ({ user, logout, onGoToLogin }) => {
                     <div className="space-y-6">
                         <div>
                             <label className="block text-gray-400 text-sm mb-2">默认摘要风格</label>
-                            <select className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white">
-                                <option>简洁版（核心要点）</option>
-                                <option selected>标准版（完整概括）</option>
-                                <option>详细版（深度分析）</option>
+                            <select
+                                value={summaryStyle}
+                                onChange={(e) => setSummaryStyle(e.target.value)}
+                                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                            >
+                                <option value="concise">简洁版（核心要点）</option>
+                                <option value="standard">标准版（完整概括）</option>
+                                <option value="detailed">详细版（深度分析）</option>
                             </select>
                         </div>
                         <div>
                             <label className="block text-gray-400 text-sm mb-2">默认输出语言</label>
-                            <select className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white">
-                                <option selected>中文</option>
-                                <option>英文</option>
-                                <option>中英双语</option>
+                            <select
+                                value={defaultLanguage}
+                                onChange={(e) => setDefaultLanguage(e.target.value)}
+                                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                            >
+                                <option value="chinese">中文</option>
+                                <option value="english">英文</option>
+                                <option value="bilingual">中英双语</option>
                             </select>
                         </div>
-                        <button className="px-6 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-400 transition">
-                            保存偏好设置
+                        <button
+                            onClick={handleSavePreferences}
+                            disabled={savingPrefs}
+                            className="px-6 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-400 transition disabled:opacity-50"
+                        >
+                            {savingPrefs ? '保存中...' : '保存偏好设置'}
                         </button>
                     </div>
                 </div>
