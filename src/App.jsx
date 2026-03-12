@@ -175,22 +175,29 @@ function App() {
         formData.append('file', file);
 
         try {
-            const response = await fetch('http://localhost:5000/api/upload/', {
+            // 从 localStorage 读取 token
+            const token = localStorage.getItem('token');
+            const tokenType = localStorage.getItem('token_type') || 'Bearer';
+
+            const response = await fetch('http://localhost:8000/api/upload/', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include',
+                // 新增：携带认证 Token
+                headers: {
+                    'Authorization': `${tokenType} ${token}`
+                }
             });
 
             if (!response.ok) {
-                throw new Error('上传失败');
+                throw new Error('上传失败，请检查是否已登录');
             }
 
             const data = await response.json();
             setFileId(data.file_id);
             setUploadProgress(100);
 
-            // 获取文件内容
             await fetchFileContent(data.file_id);
-
             setIsProcessing(false);
             alert(`文件 ${file.name} 上传成功！`);
         } catch (error) {
@@ -203,9 +210,20 @@ function App() {
     // 获取文件内容
     const fetchFileContent = async (fileId) => {
         try {
-            const response = await fetch(`http://localhost:5000/api/document/${fileId}`);
-            if (!response.ok) throw new Error('获取文件内容失败');
+            // 读取 Token
+            const token = localStorage.getItem('token');
+            const tokenType = localStorage.getItem('token_type') || 'Bearer';
 
+            const response = await fetch(`http://localhost:8000/api/document/${fileId}`, {
+                method: 'GET',
+                credentials: 'include',
+                // 新增：携带认证 Token
+                headers: {
+                    'Authorization': `${tokenType} ${token}`
+                }
+            });
+
+            if (!response.ok) throw new Error('获取文件内容失败');
             const data = await response.json();
             setText(data.content);
         } catch (error) {
@@ -224,7 +242,6 @@ function App() {
         setIsProcessing(true);
         setTaskStatus('processing');
 
-        // 如果是示例模式，直接展示示例数据
         if (exampleMode) {
             setChineseSummary(exampleSummary.chinese);
             setEnglishSummary(exampleSummary.english);
@@ -235,13 +252,23 @@ function App() {
         }
 
         try {
+            // 读取 Token
+            const token = localStorage.getItem('token');
+            const tokenType = localStorage.getItem('token_type') || 'Bearer';
+
             const response = await fetch(
-                `http://localhost:5000/api/process/${fileId}?summary_type=${summaryType}&summary_length=${summaryLength}&output_language=${outputLanguage}`,
-                {method: 'POST'}
+                `http://localhost:8000/api/process/${fileId}?summary_type=${summaryType}&summary_length=${summaryLength}&output_language=${outputLanguage}`,
+                {
+                    method: 'POST',
+                    credentials: 'include',
+                    // 新增：携带认证 Token
+                    headers: {
+                        'Authorization': `${tokenType} ${token}`
+                    }
+                }
             );
 
             if (!response.ok) throw new Error('启动处理失败');
-
             const data = await response.json();
             setTaskId(data.task_id);
             startPollingTaskStatus(data.task_id);
@@ -259,9 +286,18 @@ function App() {
 
         const interval = setInterval(async () => {
             try {
-                const response = await fetch(`http://localhost:5000/api/task/${taskId}`);
-                if (!response.ok) throw new Error('获取任务状态失败');
+                const token = localStorage.getItem('token');
+                const tokenType = localStorage.getItem('token_type') || 'Bearer';
 
+                const response = await fetch(`http://localhost:8000/api/task/${taskId}`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Authorization': `${tokenType} ${token}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('获取任务状态失败');
                 const data = await response.json();
                 setTaskStatus(data.status);
 
@@ -274,21 +310,27 @@ function App() {
                     setIsProcessing(false);
                     alert('任务处理失败: ' + (data.error || '未知错误'));
                 }
-
             } catch (error) {
                 console.error('轮询任务状态错误:', error);
             }
         }, 2000);
-
         setPollingInterval(interval);
     };
 
-    // 获取摘要结果
     const fetchSummary = async (taskId) => {
         try {
-            const response = await fetch(`http://localhost:5000/api/summary/${taskId}`);
-            if (!response.ok) throw new Error('获取摘要失败');
+            const token = localStorage.getItem('token');
+            const tokenType = localStorage.getItem('token_type') || 'Bearer';
 
+            const response = await fetch(`http://localhost:8000/api/summary/${taskId}`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Authorization': `${tokenType} ${token}`
+                }
+            });
+
+            if (!response.ok) throw new Error('获取摘要失败');
             const data = await response.json();
             setChineseSummary(data.chinese || data.summary?.chinese || '');
             setEnglishSummary(data.english || data.summary?.english || '');
@@ -298,7 +340,6 @@ function App() {
             alert('获取摘要失败: ' + error.message);
         }
     };
-
     // 查看示例
     const handleViewExample = () => {
         setExampleMode(true);
