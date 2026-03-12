@@ -316,7 +316,6 @@ function App() {
         }, 2000);
         setPollingInterval(interval);
     };
-
     const fetchSummary = async (taskId) => {
         try {
             const token = localStorage.getItem('token');
@@ -332,8 +331,23 @@ function App() {
 
             if (!response.ok) throw new Error('获取摘要失败');
             const data = await response.json();
-            setChineseSummary(data.chinese || data.summary?.chinese || '');
-            setEnglishSummary(data.english || data.summary?.english || '');
+
+            // 第一步：兼容后端可能的字段结构（先确保能拿到数据）
+            const chineseContent = data.chinese || data.summary_chinese || data.summary?.chinese || '';
+            const englishContent = data.english || data.summary_english || data.summary?.english || '';
+
+            // 第二步：根据语言选项控制显示
+            if (outputLanguage === 'chinese') {
+                setChineseSummary(chineseContent);
+                setEnglishSummary(''); // 清空英文
+            } else if (outputLanguage === 'english') {
+                setEnglishSummary(englishContent);
+                setChineseSummary(''); // 清空中文
+            } else {
+                setChineseSummary(chineseContent);
+                setEnglishSummary(englishContent);
+            }
+
             alert('摘要生成成功！');
         } catch (error) {
             console.error('获取摘要错误:', error);
@@ -355,16 +369,49 @@ function App() {
             .then(() => alert('摘要复制成功！'))
             .catch(() => alert('复制失败，请手动复制'));
     };
+// 先定义统计字数的辅助函数（放在 App 组件内）
+    const countChineseChars = (text) => {
+        if (!text) return 0;
+        // 去除所有空格/换行后统计中文字符数
+        return text.replace(/\s/g, '').length;
+    };
 
+    const countEnglishWords = (text) => {
+        if (!text) return 0;
+        // 按空格分割，过滤空字符串后统计单词数
+        return text.trim().split(/\s+/).filter(word => word).length;
+    };
     // 导出摘要
     const exportSummary = () => {
-        const content = `### 中文摘要\n${chineseSummary}\n\n### 英文摘要\n${englishSummary}`;
-        const blob = new Blob([content], {type: 'text/markdown'});
+        let content = '';
+
+        // 动态拼接中文摘要部分
+        if (chineseSummary) {
+            content += '### 中文摘要\n';
+            content += `${chineseSummary}\n\n`;
+        }
+
+        // 动态拼接英文摘要部分（仅在需要时添加）
+        if (englishSummary && (outputLanguage === 'auto' || outputLanguage === 'english')) {
+            content += '### 英文摘要\n';
+            content += `${englishSummary}\n\n`;
+        }
+
+        // 如果没有任何摘要内容，提示用户
+        if (!content) {
+            alert('暂无摘要可导出');
+            return;
+        }
+
+        // 创建并下载 .md 文件
+        const blob = new Blob([content], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `文档摘要_${new Date().getTime()}.md`;
+        a.download = `文档摘要_${Date.now()}.md`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
 
@@ -452,11 +499,11 @@ function App() {
                                 <h3 className="text-xl font-semibold text-white mb-2">获取摘要</h3>
                                 <p className="text-gray-400 text-sm mb-4">精准提取核心内容</p>
                                 <button
-                                    onClick={handleViewExample}
-                                    disabled={isProcessing}
+                                    onClick={exportSummary}
+                                    disabled={!chineseSummary && !englishSummary}
                                     className="px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 rounded-lg transition-all disabled:opacity-50"
                                 >
-                                    查看示例
+                                    导出摘要
                                 </button>
                             </div>
                         </div>
@@ -531,7 +578,12 @@ function App() {
                         {chineseSummary && (
                             <div className="mt-8 p-6 bg-gray-800/50 rounded-xl border border-emerald-500/20">
                                 <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-xl font-bold text-emerald-400">中文摘要结果</h3>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-xl font-bold text-emerald-400">中文摘要结果</h3>
+                                        <span className="text-sm text-gray-400">
+                                            （{countChineseChars(chineseSummary)} 字符）
+                                        </span>
+                                    </div>
                                     <button
                                         onClick={() => copySummary(chineseSummary)}
                                         className="flex items-center gap-2 px-3 py-1 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
@@ -548,7 +600,12 @@ function App() {
                         {englishSummary && (
                             <div className="mt-4 p-6 bg-gray-800/50 rounded-xl border border-blue-500/20">
                                 <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-xl font-bold text-blue-400">English Summary</h3>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-xl font-bold text-blue-400">English Summary</h3>
+                                        <span className="text-sm text-gray-400">
+                                        （{countEnglishWords(englishSummary)} words）
+                                        </span>
+                                    </div>
                                     <button
                                         onClick={() => copySummary(englishSummary)}
                                         className="flex items-center gap-2 px-3 py-1 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
