@@ -1,7 +1,15 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
-
+// src/context/AuthContext.jsx
+const logout = () => {
+    // 清空本地存储
+    localStorage.removeItem('token');
+    localStorage.removeItem('token_type');
+    localStorage.removeItem('user');
+    // 清空 user 状态
+    setUser(null);
+};
 export function AuthProvider({ children }) {
     // 初始化：优先从 localStorage 恢复登录状态
     const [user, setUser] = useState(() => {
