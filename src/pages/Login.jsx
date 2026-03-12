@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext'; // 新增：引入 AuthContext
 
 // 接收两个回调：登录成功、切换到注册
 const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
@@ -8,6 +9,8 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const { login: authLogin } = useAuth(); // 新增：获取 AuthContext 的 login 方法
 
     // 处理登录提交（适配后端 Form 格式）
     const handleSubmit = async (e) => {
@@ -60,6 +63,10 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
             if (userResponse.ok) {
                 const userData = await userResponse.json();
                 localStorage.setItem('user', JSON.stringify(userData));
+
+                // 新增：同步更新 AuthContext 的 user 状态（关键）
+                await authLogin(userData.username, password); // 调用 Context 的 login 方法
+
                 // 调用父组件登录成功回调
                 onLoginSuccess && onLoginSuccess(userData);
             }

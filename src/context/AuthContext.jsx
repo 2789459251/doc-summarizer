@@ -1,33 +1,47 @@
-// src/context/AuthContext.js
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-    const [user, setUser] = useState(null);
+    // 初始化：优先从 localStorage 恢复登录状态
+    const [user, setUser] = useState(() => {
+        const savedUser = localStorage.getItem('user');
+        return savedUser ? JSON.parse(savedUser) : null;
+    });
 
-    // 模拟登录
-    const login = async (username, password) => {
-        // 简单验证，实际项目替换为接口请求
-        if (!username || !password) {
-            throw new Error('用户名和密码不能为空');
+    // 登录：接收真实用户数据（不再需要模拟 username/password）
+    const login = async (username, password, userData = null) => {
+        try {
+            // 如果传了 userData（从后端获取的），直接用；否则模拟
+            const finalUserData = userData || {
+                username,
+                email: `${username}@example.com`
+            };
+
+            // 更新状态 + 持久化
+            setUser(finalUserData);
+            localStorage.setItem('user', JSON.stringify(finalUserData));
+
+            return finalUserData;
+        } catch (err) {
+            throw new Error('登录状态更新失败');
         }
-        // 模拟登录成功
-        setUser({ username, email: `${username}@example.com` });
     };
 
-    // 模拟注册
+    // 注册（保留原有逻辑）
     const register = async (username, email, password) => {
         if (!username || !email || !password) {
             throw new Error('请填写完整信息');
         }
-        // 模拟注册成功
         return true;
     };
 
     // 退出登录
     const logout = () => {
         setUser(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('token_type');
     };
 
     return (

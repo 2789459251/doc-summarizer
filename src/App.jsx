@@ -560,13 +560,11 @@ function App() {
                     <Login
                         onLoginSuccess={(userData) => {
                             console.log('登录成功', userData);
-                            // 登录成功：保存用户信息 + 切回首页
-                            localStorage.setItem('user', JSON.stringify(userData));
-                            localStorage.setItem('token', userData.token || '');
+                            // ✅ 无需重复保存 localStorage（Login.jsx + AuthContext 已处理）
+                            // ✅ 只保留「切换到首页」的核心逻辑即可
                             setCurrentModule('home');
                         }}
                         onSwitchToRegister={() => {
-                            // 切换到注册页
                             setCurrentModule('register');
                         }}
                     />
