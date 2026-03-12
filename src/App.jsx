@@ -4,11 +4,11 @@ import {
     Upload, Zap, Shield, Globe, Settings,
     ChevronRight, CheckCircle, Lock, Sparkles,
     Code, Database, GitBranch, BookOpen,
-    BarChart, Target, Languages, Palette, Copy, Download
+    BarChart, Target, Languages, Palette, Copy, Download,
+    Play, Pause, Info, History as HistoryIcon, User as UserIcon
 } from 'lucide-react';
 import './App.css';
 import { useAuth } from './context/AuthContext';
-import { History as HistoryIcon, User as UserIcon } from 'lucide-react';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import History from './pages/History';
@@ -43,6 +43,68 @@ const BackgroundGrid = () => {
     );
 };
 
+// ========== 引导动画组件 ==========
+const GuideAnimation = ({ isPlaying, onClose }) => {
+    const [step, setStep] = useState(1);
+
+    // 步骤轮播逻辑
+    useEffect(() => {
+        if (!isPlaying) return;
+        const timer = setInterval(() => {
+            setStep(prev => (prev % 3) + 1);
+        }, 2500);
+        return () => clearInterval(timer);
+    }, [isPlaying]);
+
+    // 修复：移除全局点击关闭（避免和按钮点击冲突）
+    // 改为只通过关闭按钮或点击动画内部关闭
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md">
+            <div
+                className="w-[500px] bg-gray-900/95 p-8 rounded-2xl border border-cyan-500/40 shadow-2xl relative"
+            >
+                <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-cyan-400 text-xl font-bold">使用引导</h4>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-white transition-colors"
+                        aria-label="关闭引导"
+                    >
+                        ✕
+                    </button>
+                </div>
+                <div className="space-y-4 text-base text-gray-300">
+                    <div className={`flex items-center gap-4 transition-all ${step === 1 ? 'text-cyan-400 font-bold scale-105' : 'text-gray-500'}`}>
+                        <span className="w-8 h-8 rounded-full flex items-center justify-center border-2 border-current text-sm">1</span>
+                        <div>
+                            <div className="font-semibold">上传文档</div>
+                            <div className="text-sm text-gray-400">选择或拖拽文件到上传区域</div>
+                        </div>
+                    </div>
+                    <div className={`flex items-center gap-4 transition-all ${step === 2 ? 'text-cyan-400 font-bold scale-105' : 'text-gray-500'}`}>
+                        <span className="w-8 h-8 rounded-full flex items-center justify-center border-2 border-current text-sm">2</span>
+                        <div>
+                            <div className="font-semibold">解析内容</div>
+                            <div className="text-sm text-gray-400">系统自动解析文档结构与文本</div>
+                        </div>
+                    </div>
+                    <div className={`flex items-center gap-4 transition-all ${step === 3 ? 'text-cyan-400 font-bold scale-105' : 'text-gray-500'}`}>
+                        <span className="w-8 h-8 rounded-full flex items-center justify-center border-2 border-current text-sm">3</span>
+                        <div>
+                            <div className="font-semibold">生成摘要</div>
+                            <div className="text-sm text-gray-400">一键生成多语言结构化摘要</div>
+                        </div>
+                    </div>
+                </div>
+                <div className="mt-6 text-center text-gray-500 text-sm">
+                    点击右上角 × 关闭引导
+                </div>
+            </div>
+        </div>
+    );
+};
+
 function App() {
     // 状态管理
     const [currentModule, setCurrentModule] = useState('home');
@@ -62,6 +124,7 @@ function App() {
     const [outputLanguage, setOutputLanguage] = useState('auto');
     const [exampleMode, setExampleMode] = useState(false);
     const [showLogin, setShowLogin] = useState(true);
+    const [showGuide, setShowGuide] = useState(false);
 
     // 从AuthContext获取登录状态
     const { user, token, logout } = useAuth();
@@ -316,6 +379,7 @@ function App() {
         }, 2000);
         setPollingInterval(interval);
     };
+
     const fetchSummary = async (taskId) => {
         try {
             const token = localStorage.getItem('token');
@@ -354,6 +418,7 @@ function App() {
             alert('获取摘要失败: ' + error.message);
         }
     };
+
     // 查看示例
     const handleViewExample = () => {
         setExampleMode(true);
@@ -369,7 +434,8 @@ function App() {
             .then(() => alert('摘要复制成功！'))
             .catch(() => alert('复制失败，请手动复制'));
     };
-// 先定义统计字数的辅助函数（放在 App 组件内）
+
+    // 统计字数的辅助函数
     const countChineseChars = (text) => {
         if (!text) return 0;
         // 去除所有空格/换行后统计中文字符数
@@ -381,6 +447,7 @@ function App() {
         // 按空格分割，过滤空字符串后统计单词数
         return text.trim().split(/\s+/).filter(word => word).length;
     };
+
     // 导出摘要
     const exportSummary = () => {
         let content = '';
@@ -597,7 +664,7 @@ function App() {
                         )}
 
                         {/* 英文摘要 */}
-                        {englishSummary && (
+                        {englishSummary && (outputLanguage === 'auto' || outputLanguage === 'english') && (
                             <div className="mt-4 p-6 bg-gray-800/50 rounded-xl border border-blue-500/20">
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-2">
@@ -658,8 +725,6 @@ function App() {
                     <Login
                         onLoginSuccess={(userData) => {
                             console.log('登录成功', userData);
-                            // ✅ 无需重复保存 localStorage（Login.jsx + AuthContext 已处理）
-                            // ✅ 只保留「切换到首页」的核心逻辑即可
                             setCurrentModule('home');
                         }}
                         onSwitchToRegister={() => {
@@ -715,7 +780,7 @@ function App() {
                             </div>
                             <div>
                                 <h3 className="text-xl font-semibold text-white mb-4">历史摘要记录</h3>
-                                <History /> {/* 嵌入你的 History 组件 */}
+                                <History />
                             </div>
                         </div>
                     )}
@@ -744,7 +809,7 @@ function App() {
         // 模块内容页面
         return (
             <div className="space-y-8 w-full">
-                {/* 模块标题 */}
+                {/* 模块标题（新增引导开关） */}
                 <div className="flex items-center justify-between">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
@@ -752,6 +817,14 @@ function App() {
                                 <module.icon className="w-6 h-6"/>
                             </div>
                             <h1 className="text-3xl font-bold text-white">{module.name}</h1>
+                            {/* 新增：使用引导开关按钮 */}
+                            <button
+                                onClick={() => setShowGuide(true)}
+                                className="text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-2 bg-transparent border-none cursor-pointer"
+                                aria-label="查看使用引导"
+                            >
+                                <span className="text-sm">▶️👈 点击查看摘要生成流程</span>
+                            </button>
                         </div>
                         <p className="text-gray-400">{module.description}</p>
                     </div>
@@ -820,7 +893,7 @@ function App() {
                                     {activeSubModule.name.includes('解析') && (
                                         <div className="grid md:grid-cols-2 gap-6">
                                             <div className="space-y-4">
-                                                <h3 className="text-lg font-semibold text-white">文档解析示例</h3>
+                                                <h3 className="text-lg font-semibold text-white">文档解析</h3>
                                                 <div
                                                     className="bg-gray-900/50 rounded-lg p-4 font-mono text-sm max-h-60 overflow-auto">
                                                     <pre
@@ -879,7 +952,7 @@ function App() {
                                             </div>
 
                                             {/* 分析按钮 */}
-                                            <div className="flex gap-4">
+                                            <div className="flex justify-center gap-4">
                                                 <button
                                                     onClick={processDocument}
                                                     disabled={(!fileId && !exampleMode) || isProcessing}
@@ -894,13 +967,6 @@ function App() {
                                                     ) : (
                                                         '开始智能分析'
                                                     )}
-                                                </button>
-                                                <button
-                                                    onClick={handleViewExample}
-                                                    disabled={isProcessing}
-                                                    className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors flex-1"
-                                                >
-                                                    查看示例
                                                 </button>
                                             </div>
                                         </div>
@@ -990,7 +1056,7 @@ function App() {
                                                     </div>
 
                                                     {/* 英文摘要 */}
-                                                    {englishSummary && (
+                                                    {englishSummary && (outputLanguage === 'auto' || outputLanguage === 'english') && (
                                                         <div className="bg-gray-900/50 rounded-lg p-4 min-h-20 mt-4">
                                                             <div
                                                                 className="text-gray-200 whitespace-pre-line">{englishSummary}</div>
@@ -1021,20 +1087,13 @@ function App() {
                                     )}
 
                                     {/* 通用操作按钮 */}
-                                    <div className="flex gap-4 pt-6 border-t border-gray-700/50">
+                                    <div className="flex justify-center gap-4 pt-6 border-t border-gray-700/50">
                                         <button
                                             onClick={processDocument}
                                             disabled={(!fileId && !exampleMode) || isProcessing}
                                             className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-xl font-semibold transition-all disabled:opacity-50"
                                         >
                                             {isProcessing ? '处理中...' : '开始处理'}
-                                        </button>
-                                        <button
-                                            onClick={handleViewExample}
-                                            disabled={isProcessing}
-                                            className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors"
-                                        >
-                                            查看示例
                                         </button>
                                     </div>
                                 </div>
@@ -1061,6 +1120,14 @@ function App() {
     return (
         <div className="relative w-full min-h-screen overflow-hidden bg-black text-white">
             <BackgroundGrid/>
+
+            {/* 引导动画 - 只在这里渲染一次 */}
+            {showGuide && (
+                <GuideAnimation
+                    isPlaying={showGuide}
+                    onClose={() => setShowGuide(false)}
+                />
+            )}
 
             {/* 顶部导航栏 - 全屏宽度，仅留内边距 */}
             <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-12 py-4 flex justify-between items-center">
