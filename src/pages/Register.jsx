@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff, ArrowRight, Mail } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 const Register = ({ onRegisterSuccess }) => {
+    const { isDarkMode } = useTheme();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -79,10 +81,10 @@ const Register = ({ onRegisterSuccess }) => {
     };
 
     return (
-        <div className="w-full max-w-md mx-auto bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50">
+        <div className={`w-full max-w-md mx-auto bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 border ${isDarkMode ? 'border-gray-700' : 'border-orange-200'}/50`}>
             <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-white mb-2">用户注册</h2>
-                <p className="text-gray-400">创建你的 DocSummAI Pro 账号</p>
+                <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>创建你的 DocSummAI Pro 账号</p>
             </div>
 
             {/* 错误/成功提示 */}
@@ -102,7 +104,7 @@ const Register = ({ onRegisterSuccess }) => {
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* 用户名输入框 */}
                 <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         <User className="w-5 h-5"/>
                     </div>
                     <input
@@ -110,7 +112,7 @@ const Register = ({ onRegisterSuccess }) => {
                         placeholder="用户名"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className={`w-full pl-10 pr-4 py-3 ${isDarkMode ? 'bg-gray-800' : 'bg-orange-50'} border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500`}
                         disabled={loading}
                         maxLength={20}
                     />
@@ -118,7 +120,7 @@ const Register = ({ onRegisterSuccess }) => {
 
                 {/* 密码输入框 */}
                 <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         <Lock className="w-5 h-5"/>
                     </div>
                     <input
@@ -126,14 +128,14 @@ const Register = ({ onRegisterSuccess }) => {
                         placeholder="设置密码"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-10 pr-10 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className={`w-full pl-10 pr-10 py-3 ${isDarkMode ? 'bg-gray-800' : 'bg-orange-50'} border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500`}
                         disabled={loading}
                         minLength={6}
                     />
                     <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} hover:text-white`}
                         disabled={loading}
                     >
                         {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
@@ -142,7 +144,7 @@ const Register = ({ onRegisterSuccess }) => {
 
                 {/* 确认密码输入框 */}
                 <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         <Lock className="w-5 h-5"/>
                     </div>
                     <input
@@ -150,14 +152,14 @@ const Register = ({ onRegisterSuccess }) => {
                         placeholder="确认密码"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full pl-10 pr-10 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className={`w-full pl-10 pr-10 py-3 ${isDarkMode ? 'bg-gray-800' : 'bg-orange-50'} border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500`}
                         disabled={loading}
                         minLength={6}
                     />
                     <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} hover:text-white`}
                         disabled={loading}
                     >
                         {showConfirmPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
@@ -182,7 +184,7 @@ const Register = ({ onRegisterSuccess }) => {
             </form>
 
             {/* 登录链接 */}
-            <div className="mt-6 text-center text-sm text-gray-400">
+            <div className={`mt-6 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 已有账号？{" "}
                 <button
                     onClick={() => {

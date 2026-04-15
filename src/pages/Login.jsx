@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
-import { useAuth } from '../context/AuthContext'; // 新增：引入 AuthContext
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext'; // 新增：引入 AuthContext
 
 // 接收两个回调：登录成功、切换到注册
 const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
+    const { isDarkMode } = useTheme();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -80,10 +82,10 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
     };
 
     return (
-        <div className="w-full max-w-md mx-auto bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50">
+        <div className={`w-full max-w-md mx-auto bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 border ${isDarkMode ? 'border-gray-700' : 'border-orange-200'}/50`}>
             <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-white mb-2">用户登录</h2>
-                <p className="text-gray-400">欢迎使用 DocSummAI Pro</p>
+                <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>欢迎使用 DocSummAI Pro</p>
             </div>
 
             {/* 错误提示 */}
@@ -97,7 +99,7 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* 用户名输入框 */}
                 <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         <User className="w-5 h-5"/>
                     </div>
                     <input
@@ -105,14 +107,14 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
                         placeholder="用户名"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className={`w-full pl-10 pr-4 py-3 ${isDarkMode ? 'bg-gray-800' : 'bg-orange-50'} border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500`}
                         disabled={loading}
                     />
                 </div>
 
                 {/* 密码输入框 */}
                 <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         <Lock className="w-5 h-5"/>
                     </div>
                     <input
@@ -120,13 +122,13 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
                         placeholder="密码"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-10 pr-10 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                        className={`w-full pl-10 pr-10 py-3 ${isDarkMode ? 'bg-gray-800' : 'bg-orange-50'} border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500`}
                         disabled={loading}
                     />
                     <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} hover:text-white`}
                         disabled={loading}
                     >
                         {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
@@ -151,7 +153,7 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
             </form>
 
             {/* 注册链接 - 修复点击跳转逻辑 */}
-            <div className="mt-6 text-center text-sm text-gray-400">
+            <div className={`mt-6 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 还没有账号？{" "}
                 <button
                     type="button"  // 必须加 type="button" 防止表单提交

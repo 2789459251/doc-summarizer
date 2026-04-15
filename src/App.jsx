@@ -1,7 +1,8 @@
-// src/App.js
+// src/App.js - 主应用组件
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import History from './pages/History';
@@ -14,8 +15,10 @@ import Summary from './pages/Summary';
 import Knowledge from './pages/Knowledge';
 import Customize from './pages/Customize';
 import Profile from './pages/Profile';
+import ToastContainer, { useToast } from './components/Toast';
+
 function App() {
-    // 核心状态管理（保留不动）
+    // 核心状态管理
     const [currentModule, setCurrentModule] = useState('home');
     const [activeSubModule, setActiveSubModule] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -34,10 +37,13 @@ function App() {
     const [exampleMode, setExampleMode] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
 
+    // Toast 通知
+    const { toasts, removeToast, toast } = useToast();
+
     // 从AuthContext获取登录状态
     const { user, token, logout } = useAuth();
 
-    // ========== 工具函数（保留不动） ==========
+    // ========== 工具函数 ==========
     // 统计中文字符
     const countChineseChars = (text) => {
         if (!text) return 0;
@@ -50,7 +56,7 @@ function App() {
         return text.trim().split(/\s+/).filter(word => word).length;
     };
 
-    // ========== API请求函数（保留不动） ==========
+    // ========== API请求函数 ==========
     // 处理文件上传
     const handleFileUpload = async (event) => {
         const file = event.target.files[0];
@@ -71,16 +77,22 @@ function App() {
                 credentials: 'include',
                 headers: { 'Authorization': `${tokenType} ${token}` }
             });
-            if (!response.ok) throw new Error('上传失败，请检查是否已登录');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || '上传失败，请检查是否已登录');
+            }
             const data = await response.json();
             setFileId(data.file_id);
             setUploadProgress(100);
             await fetchFileContent(data.file_id);
             setIsProcessing(false);
-            alert(`文件 ${file.name} 上传成功！`);
+            toast.success(`文件 ${file.name} 上传成功！`);
         } catch (error) {
             console.error('上传错误:', error);
-            alert('文件上传失败: ' + error.message);
+            toast.error('文件上传失败', {
+                title: '上传失败',
+                details: error.message || '请检查网络连接和登录状态'
+            });
             setIsProcessing(false);
         }
     };
@@ -95,21 +107,39 @@ function App() {
                 credentials: 'include',
                 headers: { 'Authorization': `${tokenType} ${token}` }
             });
-            if (!response.ok) throw new Error('获取文件内容失败');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || '获取文件内容失败');
+            }
             const data = await response.json();
-            setText(data.content);
+            setText(data.content || '');
         } catch (error) {
             console.error('获取文件内容错误:', error);
             setText(`[无法加载文件内容: ${error.message}]`);
+            toast.error('获取文件内容失败', { details: error.message });
         }
     };
 
     // 处理文档生成摘要
     const processDocument = async () => {
         if (!fileId && !exampleMode) {
-            alert('请先上传文件！');
+            toast.warning('请先上传文件！');
             return;
         }
+        
+        // 粒度字数限制检查
+        const grainularityLimits = {
+            concise: 50,
+            standard: 100,
+            detailed: 200
+        };
+        const minChars = grainularityLimits[summaryLength] || 100;
+        const docLength = text ? text.replace(/\s/g, '').length : 0;
+        if (docLength > 0 && docLength < minChars) {
+            toast.warning(`文档字数(${docLength}字)少于${summaryLength === 'concise' ? '简洁' : summaryLength === 'standard' ? '标准' : '详细'}摘要最低要求(${minChars}字)，请选择较短的粒度`);
+            return;
+        }
+        
         setIsProcessing(true);
         setTaskStatus('processing');
 
@@ -122,7 +152,7 @@ function App() {
             setEnglishSummary(exampleSummary.english);
             setIsProcessing(false);
             setTaskStatus('completed');
-            alert('示例摘要加载成功！');
+            toast.success('示例摘要加载成功！');
             return;
         }
 
@@ -134,13 +164,19 @@ function App() {
                 credentials: 'include',
                 headers: { 'Authorization': `${tokenType} ${token}` }
             });
-            if (!response.ok) throw new Error('启动处理失败');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || '启动处理失败');
+            }
             const data = await response.json();
             setTaskId(data.task_id);
             startPollingTaskStatus(data.task_id);
         } catch (error) {
             console.error('处理文档错误:', error);
-            alert('处理文档失败: ' + error.message);
+            toast.error('处理文档失败', {
+                title: '处理失败',
+                details: error.message
+            });
             setIsProcessing(false);
             setTaskStatus('failed');
         }
@@ -158,20 +194,28 @@ function App() {
                     credentials: 'include',
                     headers: { 'Authorization': `${tokenType} ${token}` }
                 });
-                if (!response.ok) throw new Error('获取任务状态失败');
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || '获取任务状态失败');
+                }
                 const data = await response.json();
                 setTaskStatus(data.status);
                 if (data.status === 'completed') {
                     clearInterval(interval);
                     setIsProcessing(false);
+                    toast.success('任务处理完成！');
                     await fetchSummary(taskId);
                 } else if (data.status === 'failed') {
                     clearInterval(interval);
                     setIsProcessing(false);
-                    alert('任务处理失败: ' + (data.error || '未知错误'));
+                    toast.error('任务处理失败', {
+                        title: '处理失败',
+                        details: data.error || '未知错误'
+                    });
                 }
             } catch (error) {
                 console.error('轮询任务状态错误:', error);
+                toast.error('获取任务状态失败', { details: error.message });
             }
         }, 2000);
         setPollingInterval(interval);
@@ -187,7 +231,10 @@ function App() {
                 credentials: 'include',
                 headers: { 'Authorization': `${tokenType} ${token}` }
             });
-            if (!response.ok) throw new Error('获取摘要失败');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || '获取摘要失败');
+            }
             const data = await response.json();
             const chineseContent = data.chinese || data.summary_chinese || data.summary?.chinese || '';
             const englishContent = data.english || data.summary_english || data.summary?.english || '';
@@ -202,10 +249,10 @@ function App() {
                 setChineseSummary(chineseContent);
                 setEnglishSummary(englishContent);
             }
-            alert('摘要生成成功！');
+            toast.success('摘要生成成功！');
         } catch (error) {
             console.error('获取摘要错误:', error);
-            alert('获取摘要失败: ' + error.message);
+            toast.error('获取摘要失败', { details: error.message });
         }
     };
 
@@ -220,23 +267,18 @@ function App() {
     // 复制摘要
     const copySummary = (textToCopy) => {
         navigator.clipboard.writeText(textToCopy)
-            .then(() => alert('摘要复制成功！'))
-            .catch(() => alert('复制失败，请手动复制'));
+            .then(() => toast.success('摘要复制成功！'))
+            .catch(() => toast.error('复制失败，请手动复制'));
     };
 
     // 导出摘要
     const exportSummary = () => {
-        let content = '';
-        if (chineseSummary) {
-            content += '### 中文摘要\n' + chineseSummary + '\n\n';
-        }
-        if (englishSummary && (outputLanguage === 'auto' || outputLanguage === 'english')) {
-            content += '### 英文摘要\n' + englishSummary + '\n\n';
-        }
-        if (!content) {
-            alert('暂无摘要可导出');
+        if (!chineseSummary) {
+            toast.warning('暂无摘要可导出');
             return;
         }
+        
+        const content = '### 文档摘要\n\n' + chineseSummary + '\n';
         const blob = new Blob([content], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -246,6 +288,7 @@ function App() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        toast.success('摘要导出成功！');
     };
 
     // 清理轮询
@@ -295,20 +338,30 @@ function App() {
         if (currentModule === 'login') return <Login onLoginSuccess={() => setCurrentModule('home')} onSwitchToRegister={() => setCurrentModule('register')} />;
         if (currentModule === 'register') return <Register onRegisterSuccess={() => setCurrentModule('login')} />;
         if (currentModule === 'history') return <History />;
-        if (currentModule === 'parse') return <Parse />;
-        if (currentModule === 'understand') return <Understand />;
+        if (currentModule === 'parse') return <Parse fileId={fileId} setFileId={setFileId} toast={toast} />;
+        if (currentModule === 'understand') return (
+            <Understand
+                uploadedFile={uploadedFile}
+                setUploadedFile={setUploadedFile}
+                fileId={fileId}
+                setFileId={setFileId}
+                onShowToast={toast}
+            />
+        );
         if (currentModule === 'summary') return <Summary />;
-        if (currentModule === 'knowledge') return <Knowledge />;
+        if (currentModule === 'knowledge') return (
+            <Knowledge
+                fileId={fileId}
+                setFileId={setFileId}
+                toast={toast}
+            />
+        );
         if (currentModule === 'customize') return <Customize />;
-        // App.js 中渲染 Profile 的地方
-        // App.js 里的 renderContent 函数
-        // App.js 中的 renderContent
         if (currentModule === 'profile') {
             return (
                 <Profile
                     user={user}
                     logout={logout}
-                    // 用一个不会写错的名字传递跳转函数
                     onGoToLogin={() => setCurrentModule('login')}
                 />
             );
@@ -318,12 +371,17 @@ function App() {
 
     // 主渲染
     return (
-        <Layout user={user} logout={logout} currentModule={currentModule} setCurrentModule={setCurrentModule}>
-            {/* 引导动画 */}
-            <GuideModal isOpen={showGuide} onClose={() => setShowGuide(false)} />
-            {/* 模块内容 */}
-            {renderContent()}
-        </Layout>
+        <ThemeProvider>
+            {/* Toast 通知容器 */}
+            <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+            <Layout user={user} logout={logout} currentModule={currentModule} setCurrentModule={setCurrentModule}>
+                {/* 引导动画 */}
+                <GuideModal isOpen={showGuide} onClose={() => setShowGuide(false)} />
+                {/* 模块内容 */}
+                {renderContent()}
+            </Layout>
+        </ThemeProvider>
     );
 }
 

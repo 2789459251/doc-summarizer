@@ -1,15 +1,16 @@
 // src/components/Layout.jsx
 import React from 'react';
-import { Brain, Layers, ChevronRight, Shield, Globe } from 'lucide-react';
+import { Brain, Layers, ChevronRight, Shield, Globe, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 // 背景网格组件（原App里的BackgroundGrid）
-const BackgroundGrid = () => {
+const BackgroundGrid = ({ isDarkMode }) => {
     const techWords = ["AI解析", "智能摘要", "文档理解", "知识增强", "多格式", "自动化", "定制化", "专业级"];
     return (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+            <div className={`absolute inset-0 bg-[size:40px_40px] ${isDarkMode ? 'bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)]' : 'bg-[radial-gradient(rgba(249,115,22,0.08)_1px,transparent_1px)]'}`}></div>
             {techWords.map((word, index) => (
-                <div key={index} className="absolute text-gray-700/50 text-xl font-medium animate-float"
+                <div key={index} className={`absolute text-xl font-medium animate-float ${isDarkMode ? 'text-gray-700/50' : 'text-orange-200/60'}`}
                      style={{ top: `${Math.random() * 90}%`, left: `${Math.random() * 90}%`, animationDelay: `${index * 0.5}s`, animationDuration: `${15 + index * 2}s` }}>
                     {word}
                 </div>
@@ -20,6 +21,8 @@ const BackgroundGrid = () => {
 
 // 布局主组件
 const Layout = ({ user, logout, currentModule, setCurrentModule, children }) => {
+    const { isDarkMode, toggleTheme } = useTheme();
+
     // 模块数据（原App里的modules）
     const modules = [
         { id: 'parse', name: '多格式文档解析', icon: 'FileText', color: 'from-cyan-500 to-blue-500', description: '支持多种技术文档格式解析' },
@@ -32,9 +35,9 @@ const Layout = ({ user, logout, currentModule, setCurrentModule, children }) => 
     ];
 
     return (
-        <div className="relative w-full min-h-screen overflow-hidden bg-black text-white">
+        <div className={`relative w-full min-h-screen overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-black text-white' : 'bg-stone-50 text-gray-800'}`}>
             {/* 背景网格 */}
-            <BackgroundGrid />
+            <BackgroundGrid isDarkMode={isDarkMode} />
 
             {/* 顶部导航栏 */}
             <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-12 py-4 flex justify-between items-center">
@@ -50,29 +53,38 @@ const Layout = ({ user, logout, currentModule, setCurrentModule, children }) => 
                     </div>
                 </div>
                 <div className="flex items-center gap-6">
-                    <div className="hidden md:flex items-center gap-4 text-sm text-gray-400">
+                    {/* 主题切换按钮 */}
+                    <button
+                        onClick={toggleTheme}
+                        className={`theme-toggle-btn ${isDarkMode ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gradient-to-r from-gray-700 to-gray-800'}`}
+                        title={isDarkMode ? '切换到白天模式' : '切换到黑夜模式'}
+                    >
+                        {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    </button>
+
+                    <div className={`hidden md:flex items-center gap-4 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         <div className="flex items-center gap-2">
-                            <Shield className="w-4 h-4" />
+                            <Shield className={`w-4 h-4 ${isDarkMode ? '' : 'text-primary-500'}`} />
                             <span>企业级安全</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Globe className="w-4 h-4" />
+                            <Globe className={`w-4 h-4 ${isDarkMode ? '' : 'text-primary-500'}`} />
                             <span>多语言支持</span>
                         </div>
                     </div>
                     {user ? (
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-200">欢迎，{user.username}</span>
-                            <button onClick={() => logout()} className="px-3 py-2 text-xs bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition">
+                            <span className={`text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>欢迎，{user.username}</span>
+                            <button onClick={() => logout()} className={`px-3 py-2 text-xs rounded-lg transition ${isDarkMode ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}>
                                 退出登录
                             </button>
                         </div>
                     ) : (
                         <div className="flex gap-2">
-                            <button onClick={() => setCurrentModule('login')} className="px-3 py-2 text-xs bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition">
+                            <button onClick={() => setCurrentModule('login')} className={`px-3 py-2 text-xs rounded-lg transition ${isDarkMode ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-primary-100 text-primary-600 hover:bg-primary-200'}`}>
                                 登录
                             </button>
-                            <button onClick={() => setCurrentModule('register')} className="px-3 py-2 text-xs bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition">
+                            <button onClick={() => setCurrentModule('register')} className={`px-3 py-2 text-xs rounded-lg transition ${isDarkMode ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}>
                                 注册
                             </button>
                         </div>
@@ -82,11 +94,11 @@ const Layout = ({ user, logout, currentModule, setCurrentModule, children }) => 
 
             {/* 页面主体区域 */}
             <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-12 py-8">
-                {/* 非主页返回按钮 */}
+                {/* 非主页返回按钮 - 白天模式白底黑字，黑夜模式黑底白字 */}
                 {currentModule !== 'home' && (
                     <div className="mb-8">
-                        <button onClick={() => setCurrentModule('home')} className="flex items-center gap-2 px-4 py-2 bg-gray-900/50 hover:bg-gray-800/50 rounded-lg transition-colors">
-                            <ChevronRight className="w-4 h-4 rotate-180" />
+                        <button onClick={() => setCurrentModule('home')} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isDarkMode ? 'bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-white' : 'bg-white border border-gray-300 text-gray-700 hover:text-gray-900 hover:border-gray-400 shadow-sm'}`}>
+                            <ChevronRight className={`w-4 h-4 rotate-180 ${isDarkMode ? '' : 'text-gray-600'}`} />
                             返回首页
                         </button>
                     </div>
@@ -96,27 +108,27 @@ const Layout = ({ user, logout, currentModule, setCurrentModule, children }) => 
                 <div className="flex flex-col lg:flex-row gap-6 w-full">
                     {/* 左侧侧边栏 */}
                     <div className={`lg:w-80 shrink-0 ${currentModule !== 'home' ? 'hidden lg:block' : ''}`}>
-                        <div className="bg-gradient-to-br from-gray-900/60 to-black/60 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 w-full">
-                            <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-                                <Layers className="w-5 h-5 text-cyan-400" />
+                        <div className={`backdrop-blur-sm rounded-2xl border p-6 w-full transition-colors duration-300 ${isDarkMode ? 'bg-gradient-to-br from-gray-900/60 to-black/60 border-gray-700/50' : 'bg-white border-orange-200 shadow-lg shadow-orange-500/5'}`}>
+                            <h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${isDarkMode ? '' : 'text-gray-800'}`}>
+                                <Layers className={`w-5 h-5 ${isDarkMode ? 'text-cyan-400' : 'text-primary-500'}`} />
                                 核心模块
                             </h2>
                             <div className="space-y-2 w-full">
-                                <button onClick={() => setCurrentModule('home')} className={`w-full text-left px-4 py-3 rounded-lg transition-all ${currentModule === 'home' ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30' : 'hover:bg-gray-800/50'}`}>
+                                <button onClick={() => setCurrentModule('home')} className={`w-full text-left px-4 py-3 rounded-lg transition-all ${currentModule === 'home' ? (isDarkMode ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30' : 'bg-gradient-to-r from-primary-100 to-orange-100 border border-primary-300') : (isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-orange-50')}`}>
                                     <div className="flex items-center gap-3">
-                                        <Layers className="w-5 h-5" />
-                                        <span className="font-medium">欢迎主页</span>
+                                        <Layers className={`w-5 h-5 ${isDarkMode ? '' : 'text-primary-600'}`} />
+                                        <span className={`font-medium ${isDarkMode ? '' : 'text-gray-700'}`}>欢迎主页</span>
                                     </div>
                                 </button>
                                 {modules.map((module) => (
-                                    <button key={module.id} onClick={() => setCurrentModule(module.id)} className={`w-full text-left px-4 py-3 rounded-lg transition-all ${currentModule === module.id ? `bg-gradient-to-r ${module.color} bg-opacity-20 border ${module.color.split(' ')[0].replace('from-', 'border-')}/30` : 'hover:bg-gray-800/50'}`}>
+                                    <button key={module.id} onClick={() => setCurrentModule(module.id)} className={`w-full text-left px-4 py-3 rounded-lg transition-all ${currentModule === module.id ? (isDarkMode ? `bg-gradient-to-r ${module.color} bg-opacity-20 border ${module.color.split(' ')[0].replace('from-', 'border-')}/30` : 'bg-gradient-to-r from-primary-100 to-orange-100 border border-primary-300') : (isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-orange-50')}`}>
                                         <div className="flex items-center gap-3">
-                                            <Layers className="w-5 h-5" />
+                                            <Layers className={`w-5 h-5 ${isDarkMode ? '' : 'text-primary-600'}`} />
                                             <div className="flex-1">
-                                                <div className="font-medium">{module.name}</div>
-                                                <div className="text-xs text-gray-400 mt-1">{module.description}</div>
+                                                <div className={`font-medium ${isDarkMode ? '' : 'text-gray-700'}`}>{module.name}</div>
+                                                <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{module.description}</div>
                                             </div>
-                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                            <ChevronRight className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`} />
                                         </div>
                                     </button>
                                 ))}
@@ -126,11 +138,11 @@ const Layout = ({ user, logout, currentModule, setCurrentModule, children }) => 
 
                     {/* 右侧内容区（渲染子组件） */}
                     <div className="flex-1 min-w-0 w-full">
-                        <div className="bg-gradient-to-br from-gray-900/60 to-black/60 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-8 w-full">
+                        <div className={`backdrop-blur-sm rounded-2xl border p-8 w-full transition-colors duration-300 ${isDarkMode ? 'bg-gradient-to-br from-gray-900/60 to-black/60 border-gray-700/50' : 'bg-white border-orange-200 shadow-lg shadow-orange-500/5'}`}>
                             {children}
                         </div>
                         {/* 页脚 */}
-                        <footer className="mt-8 text-center text-gray-500 text-sm w-full">
+                        <footer className={`mt-8 text-center text-sm w-full ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                             <p>© 2024 DocSummAI Pro. 专业文档智能处理平台 | 版本 3.0.0</p>
                             <p className="mt-2">融合五大核心模块，提供全面的文档智能解决方案</p>
                         </footer>

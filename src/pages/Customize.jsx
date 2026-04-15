@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 const Customize = () => {
+    const { isDarkMode } = useTheme();
     // 1. 状态管理：存储用户选择的配置 + 加载状态
     const [style, setStyle] = useState('学术严谨'); // 风格默认值
     const [purpose, setPurpose] = useState('学习笔记'); // 用途默认值
@@ -86,15 +88,15 @@ const Customize = () => {
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-yellow-500 bg-clip-text text-transparent">
                     个性化摘要定制
                 </h1>
-                <p className="text-gray-400 mt-2">按你的风格、用途、长度定制输出</p>
+                <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mt-2`}>按你的风格、用途、长度定制输出</p>
             </div>
 
-            <div className="bg-gray-900/60 rounded-2xl p-8 border border-gray-700/50 space-y-6">
+            <div className={`${isDarkMode ? 'bg-gray-900/60' : 'bg-white border border-orange-200'} rounded-2xl p-8 border border-gray-700/50 space-y-6`}>
                 {/* 风格选择框 - 绑定状态 + 变更事件 */}
                 <div>
-                    <label className="block text-sm text-gray-400 mb-1">风格</label>
+                    <label className={`block text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mb-1`}>风格</label>
                     <select
-                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2"
+                        className={`w-full ${isDarkMode ? 'bg-gray-800' : 'bg-orange-50'} border border-gray-700 rounded-lg p-2`}
                         value={style}
                         onChange={(e) => setStyle(e.target.value)}
                     >
@@ -106,9 +108,9 @@ const Customize = () => {
 
                 {/* 用途选择框 - 绑定状态 + 变更事件 */}
                 <div>
-                    <label className="block text-sm text-gray-400 mb-1">用途</label>
+                    <label className={`block text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mb-1`}>用途</label>
                     <select
-                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2"
+                        className={`w-full ${isDarkMode ? 'bg-gray-800' : 'bg-orange-50'} border border-gray-700 rounded-lg p-2`}
                         value={purpose}
                         onChange={(e) => setPurpose(e.target.value)}
                     >

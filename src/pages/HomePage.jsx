@@ -102,35 +102,6 @@ const HomePage = ({
                     </div>
                 )}
 
-                {/* 摘要配置选项 */}
-                <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm text-gray-400 mb-1">摘要类型</label>
-                        <select className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white" value={summaryType} onChange={(e) => setSummaryType(e.target.value)}>
-                            <option value="document">文档级摘要</option>
-                            <option value="chapter">章节级摘要</option>
-                            <option value="paragraph">段落级摘要</option>
-                            <option value="code">代码级摘要</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm text-gray-400 mb-1">摘要长度</label>
-                        <select className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white" value={summaryLength} onChange={(e) => setSummaryLength(e.target.value)}>
-                            <option value="concise">简洁 (50-100字)</option>
-                            <option value="standard">标准 (100-200字)</option>
-                            <option value="detailed">详细 (200-300字)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm text-gray-400 mb-1">输出语言</label>
-                        <select className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white" value={outputLanguage} onChange={(e) => setOutputLanguage(e.target.value)}>
-                            <option value="auto">自动双语</option>
-                            <option value="chinese">仅中文</option>
-                            <option value="english">仅英文</option>
-                        </select>
-                    </div>
-                </div>
-
                 {/* 中文摘要 */}
                 {chineseSummary && (
                     <div className="mt-8 p-6 bg-gray-800/50 rounded-xl border border-emerald-500/20">

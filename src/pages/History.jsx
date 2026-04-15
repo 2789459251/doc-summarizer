@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { FileText, Clock } from 'lucide-react'; // 可选：增加图标更美观
 
 export default function History() {
@@ -8,6 +9,7 @@ export default function History() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const { user, token } = useAuth();
+    const { isDarkMode } = useTheme();
 
     useEffect(() => {
         // 未登录：直接提示，不请求接口
@@ -42,34 +44,34 @@ export default function History() {
 
     return (
         <div className="p-6">
-            <h2 className="text-2xl font-bold text-white mb-4">历史摘要</h2>
+            <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>历史摘要</h2>
 
             {/* 加载中 */}
-            {loading && <p className="text-gray-400">加载中...</p>}
+            {loading && <p className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>加载中...</p>}
 
             {/* 错误/未登录提示 */}
             {!loading && error && (
-                <p className={user ? "text-red-400 mb-4" : "text-gray-400 mb-4"}>
+                <p className={user ? (isDarkMode ? "text-red-400 mb-4" : "text-red-500 mb-4") : (isDarkMode ? "text-gray-400 mb-4" : "text-gray-500 mb-4")}>
                     {error}
                 </p>
             )}
 
             {/* 无历史记录 */}
             {!loading && !error && history.length === 0 ? (
-                <p className="text-gray-400">暂无历史摘要记录</p>
+                <p className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>暂无历史摘要记录</p>
             ) : (
                 // 历史记录列表（优化样式+显示文件名）
                 history.map(item => (
-                    <div key={item.id} className="bg-gray-800 p-4 mb-4 rounded border border-gray-700">
+                    <div key={item.id} className={`p-4 mb-4 rounded border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-orange-200 shadow-sm hover:border-orange-300'}`}>
                         <div className="flex items-center gap-2 mb-2">
-                            <FileText className="w-4 h-4 text-cyan-400" />
-                            <h3 className="text-white font-bold">{item.file_name || '未知文件'}</h3>
-                            <span className="text-xs text-gray-400 flex items-center gap-1 ml-auto">
+                            <FileText className={`w-4 h-4 ${isDarkMode ? 'text-cyan-400' : 'text-orange-500'}`} />
+                            <h3 className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.file_name || '未知文件'}</h3>
+                            <span className={`text-xs flex items-center gap-1 ml-auto ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                 <Clock className="w-3 h-3" />
                                 {item.create_time ? new Date(item.create_time).toLocaleDateString() : ''}
                             </span>
                         </div>
-                        <p className="text-gray-300 text-sm">
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                             {item.summary_chinese || item.summary_english || '暂无摘要内容'}
                         </p>
                     </div>

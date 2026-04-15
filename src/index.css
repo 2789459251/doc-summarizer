@@ -3,23 +3,43 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* 黑夜模式（默认） */
+.dark {
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #000000;
+}
+
+/* 白天模式（橙白色调） */
+.light {
+  color-scheme: light;
+  color: #1f2937;
+  background-color: #fafaf9;
+}
+
 a {
   font-weight: 500;
-  color: #646cff;
   text-decoration: inherit;
 }
-a:hover {
+
+.dark a {
+  color: #646cff;
+}
+.dark a:hover {
   color: #535bf2;
+}
+
+.light a {
+  color: #f97316;
+}
+.light a:hover {
+  color: #ea580c;
 }
 
 body {
@@ -42,27 +62,51 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
   cursor: pointer;
   transition: border-color 0.25s;
 }
-button:hover {
+
+.dark button {
+  background-color: #1a1a1a;
+}
+.dark button:hover {
   border-color: #646cff;
 }
+
+.light button {
+  background-color: #fff7ed;
+  color: #ea580c;
+}
+.light button:hover {
+  border-color: #f97316;
+}
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* 主题切换按钮样式 */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.dark .theme-toggle-btn {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white;
+}
+
+.light .theme-toggle-btn {
+  background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+  color: white;
+}
+
+.theme-toggle-btn:hover {
+  transform: scale(1.1);
 }
