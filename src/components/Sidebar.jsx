@@ -3,7 +3,7 @@ import { useState } from 'react';
 export default function Sidebar({ onModuleChange }) {
     const modules = [
         { id: 1, name: '多格式文档解析' },
-        { id: 2, name: '智能文档理解' },
+        { id: 2, name: '文档图表生成' },
         { id: 3, name: '格式转换工具' },
         { id: 4, name: '领域知识增强' },
         { id: 5, name: '个性化摘要定制' },

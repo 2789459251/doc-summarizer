@@ -49,7 +49,7 @@ const Layout = ({ user, logout, currentModule, setCurrentModule, children }) => 
 
     const modules = [
         { id: 'parse', name: '多格式文档解析', icon: 'FileText', description: '支持多种技术文档格式解析' },
-        { id: 'understand', name: '智能文档理解', icon: 'Cpu', description: '深度理解文档结构与内容' },
+        { id: 'understand', name: '文档图表生成', icon: 'Cpu', description: '根据文档内容生成可视化图表' },
         { id: 'summary', name: '格式转换工具', icon: 'Layers', description: '支持文档格式互转与摘要提取' },
         { id: 'knowledge', name: '领域知识增强', icon: 'Brain', description: '专业知识库集成' },
         { id: 'customize', name: '个性化摘要定制', icon: 'Sparkles', description: '定制化摘要生成' },

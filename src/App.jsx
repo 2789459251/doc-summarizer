@@ -338,7 +338,14 @@ function App() {
         if (currentModule === 'login') return <Login onLoginSuccess={() => setCurrentModule('home')} onSwitchToRegister={() => setCurrentModule('register')} />;
         if (currentModule === 'register') return <Register onRegisterSuccess={() => setCurrentModule('login')} />;
         if (currentModule === 'history') return <History />;
-        if (currentModule === 'parse') return <Parse fileId={fileId} setFileId={setFileId} toast={toast} />;
+        if (currentModule === 'parse') return (
+            <Parse 
+                fileId={fileId} 
+                setFileId={setFileId}
+                summaryLength={summaryLength}
+                toast={toast} 
+            />
+        );
         if (currentModule === 'understand') return (
             <Understand
                 uploadedFile={uploadedFile}
