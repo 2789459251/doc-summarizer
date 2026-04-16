@@ -39,34 +39,45 @@ export const request = async (url, options = {}) => {
         if (!url.includes('/api/login') && !window.showingAuthToast) {
             window.showingAuthToast = true;
             
+            // 清理状态
+            window.clearAuthState = () => {
+                window.showingAuthToast = false;
+                if (window.authToastTimeout) {
+                    clearTimeout(window.authToastTimeout);
+                }
+            };
+            
             // 显示登录提示弹窗
             const toastEvent = new CustomEvent('showToast', {
                 detail: {
                     type: 'error',
                     title: '登录已过期',
                     message: '您的登录已过期，请重新登录以继续使用',
-                    duration: 8000,
+                    duration: 0, // 不自动关闭
                     action: {
                         label: '立即登录',
                         onClick: () => {
-                            window.location.href = '#/login';
-                            window.showingAuthToast = false;
+                            // 清理状态
+                            if (window.clearAuthState) {
+                                window.clearAuthState();
+                            }
+                            // 使用window.location跳转到登录页
+                            window.location.hash = '#/login';
+                            window.location.reload();
                         }
                     }
                 }
             });
             window.dispatchEvent(toastEvent);
             
-            // 3秒后重置标志
-            setTimeout(() => {
-                window.showingAuthToast = false;
-            }, 3000);
+            // 5秒后如果没有点击按钮，也跳转到登录页
+            window.authToastTimeout = setTimeout(() => {
+                if (window.showingAuthToast) {
+                    window.location.hash = '#/login';
+                    window.location.reload();
+                }
+            }, 5000);
         }
-        
-        // 仍然跳转到登录页，但先让用户看到提示
-        setTimeout(() => {
-            window.location.href = '#/login';
-        }, 1500);
         
         throw new Error('UNAUTHORIZED:登录已过期，请重新登录');
     }

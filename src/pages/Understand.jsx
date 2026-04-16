@@ -145,6 +145,36 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
             svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
             svg.setAttribute('overflow', 'visible');
 
+            // 对齐 ProcessOn 的“完整展示”体验：
+            // 把 SVG 挂到离屏容器，按真实图形边界重算 viewBox，避免右侧/底部被裁切
+            const host = document.createElement('div');
+            host.style.position = 'fixed';
+            host.style.left = '-100000px';
+            host.style.top = '-100000px';
+            host.style.opacity = '0';
+            host.style.pointerEvents = 'none';
+            host.innerHTML = svg.outerHTML;
+            document.body.appendChild(host);
+            try {
+                const liveSvg = host.querySelector('svg');
+                const target = liveSvg?.querySelector('g') || liveSvg;
+                if (liveSvg && target && typeof target.getBBox === 'function') {
+                    const bbox = target.getBBox();
+                    if (bbox && bbox.width > 0 && bbox.height > 0) {
+                        const pad = 24;
+                        const x = Math.floor(bbox.x - pad);
+                        const y = Math.floor(bbox.y - pad);
+                        const w = Math.ceil(bbox.width + pad * 2);
+                        const h = Math.ceil(bbox.height + pad * 2);
+                        svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+                        svg.setAttribute('width', String(w));
+                        svg.setAttribute('height', String(h));
+                    }
+                }
+            } finally {
+                document.body.removeChild(host);
+            }
+
             // 显示用样式：让 SVG 在容器内完整可见（必要时缩放）
             const prevStyle = svg.getAttribute('style') || '';
             const nextStyle = [
@@ -168,14 +198,62 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
         setRenderingStates(prev => ({ ...prev, [chart.type]: 'rendering' }));
 
         try {
-            const { svg } = await mermaid.render(chartId, chart.code);
+            // 验证Mermaid代码基本格式
+            if (!chart.code || typeof chart.code !== 'string') {
+                throw new Error('图表代码无效');
+            }
+
+            const code = chart.code.trim();
+            if (!code) {
+                throw new Error('图表代码为空');
+            }
+
+            const { svg, error } = await mermaid.render(chartId, code);
+            
+            if (error) {
+                // Mermaid返回了错误
+                console.error(`[Mermaid] ${chart.type} 渲染错误:`, error);
+                throw new Error(error.message || 'Mermaid语法错误');
+            }
+            
+            if (!svg) {
+                throw new Error('渲染结果为空');
+            }
+
             const normalized = normalizeMermaidSvg(svg);
             setRenderedSvgs(prev => ({ ...prev, [chart.type]: normalized }));
             setRenderingStates(prev => ({ ...prev, [chart.type]: 'done' }));
             return normalized;
         } catch (error) {
             console.error(`渲染 ${chart.type} 失败:`, error);
-            setRenderingStates(prev => ({ ...prev, [chart.type]: 'error' }));
+            const errorMessage = error.message || '未知错误';
+            
+            // 更新渲染错误状态
+            setRenderingStates(prev => ({ 
+                ...prev, 
+                [chart.type]: 'error',
+                [`${chart.type}_error`]: errorMessage 
+            }));
+            
+            // 如果渲染失败，将图表移到失败列表
+            setGeneratedCharts(prev => {
+                const updated = prev.filter(c => c.type !== chart.type);
+                return updated;
+            });
+            setFailedCharts(prev => {
+                const exists = prev.find(c => c.type === chart.type);
+                if (exists) return prev;
+                return [...prev, { 
+                    ...chart, 
+                    error: `渲染失败: ${errorMessage}`,
+                    detail: '图表代码可能存在语法错误，请尝试更换描述或图表类型'
+                }];
+            });
+            
+            toast.error(`${chart.name || chart.type} 渲染失败`, {
+                details: errorMessage
+            });
+            
             return null;
         }
     }, [normalizeMermaidSvg]);
@@ -768,7 +846,11 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                                     <div className={`
                                         rounded-xl min-h-[200px] flex items-center justify-center relative overflow-auto
                                         ${isDarkMode ? 'bg-gray-900' : 'bg-white'}
-                                    `}>
+                                    `}
+                                    style={{
+                                        backgroundImage: 'radial-gradient(circle, rgba(156,163,175,0.35) 1px, transparent 1px)',
+                                        backgroundSize: '16px 16px'
+                                    }}>
                                         <div className="w-full h-full p-4 flex flex-col items-center justify-center">
                                             {renderingState === 'rendering' && (
                                                 <div className="flex flex-col items-center gap-3 h-full justify-center">
@@ -786,7 +868,7 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
 
 {svg && (
                                                 <div
-                                                    className="w-full overflow-auto"
+                                                    className="w-full overflow-auto flex items-center justify-center"
                                                     style={{
                                                         display: 'block',
                                                         width: '100%',
@@ -865,13 +947,13 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                     }}
                 >
                     <div
-                        className={`w-full max-w-6xl max-h-[90vh] rounded-2xl overflow-hidden border shadow-2xl ${
+                        className={`w-full max-w-7xl max-h-[95vh] rounded-2xl overflow-hidden border shadow-2xl flex flex-col ${
                             isDarkMode ? 'bg-gray-900 border-gray-700/60' : 'bg-white border-gray-200'
                         }`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* 顶部栏 */}
-                        <div className={`flex items-center justify-between px-4 py-3 border-b ${
+                        <div className={`flex items-center justify-between px-4 py-3 border-b flex-shrink-0 ${
                             isDarkMode ? 'border-gray-700/60' : 'border-gray-200'
                         }`}>
                             <div className="flex items-center gap-3 min-w-0">
@@ -913,24 +995,46 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                             </div>
                         </div>
 
-                        {/* 图表内容区 - 允许完整显示，不限制高度 */}
-                        <div className="overflow-visible flex items-start justify-center p-4">
+                        {/* 图表内容区 - 使用flex-1和overflow-auto确保完整显示 */}
+                        <div 
+                            className="flex-1 overflow-auto flex items-start justify-center p-6"
+                            style={{
+                                minHeight: 0,
+                                backgroundImage: 'radial-gradient(circle, rgba(156,163,175,0.28) 1px, transparent 1px)',
+                                backgroundSize: '16px 16px'
+                            }}
+                        >
                         {renderedSvgs[previewChart.type] ? (
                             <div 
-                                className="bg-white rounded-lg shadow-lg"
+                                className="bg-white rounded-xl shadow-xl"
                                 style={{ 
                                     maxWidth: '100%',
                                     overflow: 'visible'
                                 }}
                             >
+                                {/* 使用div包装svg，确保Mermaid SVG正确渲染 */}
                                 <div
-                                    dangerouslySetInnerHTML={{ __html: renderedSvgs[previewChart.type] }}
                                     style={{ 
-                                        display: 'block', 
-                                        padding: '16px',
-                                        overflow: 'visible'
+                                        display: 'block',
+                                        padding: '24px',
+                                        overflow: 'visible',
+                                        background: 'white',
+                                        borderRadius: '12px'
                                     }}
-                                />
+                                >
+                                    {/* 强制SVG正确显示 */}
+                                    <div 
+                                        style={{
+                                            display: 'block',
+                                            width: 'fit-content',
+                                            height: 'auto',
+                                            maxWidth: 'none',
+                                            overflow: 'visible'
+                                        }}
+                                    >
+                                        <div dangerouslySetInnerHTML={{ __html: renderedSvgs[previewChart.type] }} />
+                                    </div>
+                                </div>
                             </div>
                         ) : (
                             /* 加载动画 */
