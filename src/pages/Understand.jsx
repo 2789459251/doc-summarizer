@@ -150,7 +150,23 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
             toast.success(`文件 ${file.name} 上传成功！`);
         } catch (error) {
             console.error('上传错误:', error);
-            toast.error('文件上传失败', { details: error.message || '请检查网络连接和登录状态' });
+            
+            // 特殊处理401未授权错误，显示登录提示
+            if (error.message && error.message.startsWith('UNAUTHORIZED:')) {
+                const errorDetails = error.message.replace('UNAUTHORIZED:', '').trim();
+                toast.error('登录要求', { 
+                    details: errorDetails,
+                    duration: 8000, // 延长显示时间
+                    action: {
+                        label: '立即登录',
+                        onClick: () => {
+                            window.location.href = '#/login';
+                        }
+                    }
+                });
+            } else {
+                toast.error('文件上传失败', { details: error.message || '请检查网络连接和登录状态' });
+            }
         } finally {
             setIsProcessing(false);
         }
@@ -201,8 +217,9 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
             }, 200);
 
             const chartsResult = await generateCharts({
-                fileId: fileId || 'text-source',
-                chartTypes: selectedCharts
+                file_id: fileId || 'text-source',
+                chart_types: selectedCharts,
+                user_description: textDescription  // 传递用户描述给AI生成
             });
 
             clearInterval(progressInterval);
@@ -218,9 +235,25 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                 setGeneratedCharts(filteredCharts);
                 toast.success(`成功生成 ${filteredCharts.length} 个图表！`);
 
+                // 延迟打开全屏预览，等待SVG渲染完成
                 if (filteredCharts.length > 0) {
-                    setPreviewChart(filteredCharts[0]);
-                    setShowPreview(true);
+                    const firstChart = filteredCharts[0];
+                    setPreviewChart(firstChart);
+                    
+                    // 检查SVG是否已经渲染
+                    if (renderedSvgs[firstChart.type]) {
+                        setShowPreview(true);
+                    } else {
+                        // 等待SVG渲染完成后再打开预览
+                        const checkRender = () => {
+                            if (renderedSvgs[firstChart.type]) {
+                                setShowPreview(true);
+                            } else {
+                                setTimeout(checkRender, 100);
+                            }
+                        };
+                        checkRender();
+                    }
                 }
             } else {
                 throw new Error(chartsResult.detail || '图表生成失败');
@@ -234,7 +267,7 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
         }
     };
 
-    // 复制图表为JPG/PNG图片
+    // 复制图表为PNG图片（支持Clipboard API + Blob）
     const handleCopyAsImage = async (chart) => {
         const svgCode = renderedSvgs[chart.type];
         if (!svgCode) {
@@ -242,112 +275,98 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
             return;
         }
 
-        try {
-            // 创建临时容器来获取SVG元素
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = svgCode;
-            const svgElement = tempDiv.querySelector('svg');
-            if (!svgElement) {
-                throw new Error('SVG 元素不存在');
-            }
-
-            // 方法1：优先使用viewBox（Mermaid生成的SVG都有viewBox）
-            let width, height;
-            const viewBox = svgElement.getAttribute('viewBox');
-            if (viewBox) {
-                const [, , vw, vh] = viewBox.split(' ').map(Number);
-                if (vw > 0 && vh > 0) {
-                    width = vw;
-                    height = vh;
+        const copyAsPng = async () => {
+            try {
+                // 创建临时容器来获取SVG元素
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = svgCode;
+                const svgElement = tempDiv.querySelector('svg');
+                if (!svgElement) {
+                    throw new Error('SVG 元素不存在');
                 }
-            }
 
-            // 方法2：如果viewBox无效，尝试获取实际渲染尺寸
-            if (!width || !height) {
-                // 将临时div添加到文档中以获取实际尺寸
-                tempDiv.style.position = 'absolute';
-                tempDiv.style.opacity = '0';
-                tempDiv.style.pointerEvents = 'none';
-                tempDiv.style.left = '-9999px';
-                document.body.appendChild(tempDiv);
-                try {
-                    const rect = svgElement.getBoundingClientRect();
-                    if (rect.width > 0 && rect.height > 0) {
-                        width = rect.width;
-                        height = rect.height;
+                // 获取SVG尺寸
+                let width, height;
+                const viewBox = svgElement.getAttribute('viewBox');
+                if (viewBox) {
+                    const [, , vw, vh] = viewBox.split(' ').map(Number);
+                    if (vw > 0 && vh > 0) {
+                        width = vw;
+                        height = vh;
                     }
-                } catch (e) {
-                    // 忽略错误
-                } finally {
-                    document.body.removeChild(tempDiv);
                 }
-            }
-
-            // 方法3：如果仍然无效，使用默认尺寸
-            width = width || 800;
-            height = height || 600;
-
-            // 增加边距确保完整显示（根据图表大小动态调整）
-            const padding = Math.max(20, Math.min(width, height) * 0.05);
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = width + padding * 2;
-            canvas.height = height + padding * 2;
-
-            // 设置背景色（根据主题）
-            const backgroundColor = isDarkMode ? '#1a1a2e' : '#ffffff';
-            ctx.fillStyle = backgroundColor;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 将SVG转换为数据URL
-            const svgBlob = new Blob([svgCode], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(svgBlob);
-            const img = new Image();
-
-            await new Promise((resolve, reject) => {
-                img.onload = () => {
-                    // 在Canvas中心绘制SVG
-                    ctx.drawImage(img, padding, padding, width, height);
-                    URL.revokeObjectURL(url);
-                    resolve();
-                };
-                img.onerror = (err) => {
-                    URL.revokeObjectURL(url);
-                    reject(new Error('图片加载失败'));
-                };
-                img.src = url;
-            });
-
-            // 将Canvas转换为PNG Blob
-            const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 1.0));
-
-            // 复制PNG到剪贴板（支持现代浏览器）
-            if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
-                try {
-                    const clipboardItem = new ClipboardItem({ 'image/png': pngBlob });
-                    await navigator.clipboard.write([clipboardItem]);
-                    toast.success('JPG/PNG 图片已复制到剪贴板！可直接粘贴到聊天或文档中');
-                    return;
-                } catch (clipboardError) {
-                    console.warn('直接复制失败，尝试下载:', clipboardError);
+                if (!width || !height) {
+                    width = svgElement.getAttribute('width') || 800;
+                    height = svgElement.getAttribute('height') || 600;
                 }
-            }
 
-            // 降级：提供下载
-            const downloadUrl = URL.createObjectURL(pngBlob);
+                // 增加边距
+                const padding = Math.max(20, Math.min(width, height) * 0.05);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = width + padding * 2;
+                canvas.height = height + padding * 2;
+
+                // 设置背景色
+                ctx.fillStyle = isDarkMode ? '#1a1a2e' : '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 将SVG转换为数据URL并绘制到Canvas
+                const svgBlob = new Blob([svgCode], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+                const img = new Image();
+
+                await new Promise((resolve, reject) => {
+                    img.onload = () => {
+                        ctx.drawImage(img, padding, padding, width, height);
+                        URL.revokeObjectURL(url);
+                        resolve();
+                    };
+                    img.onerror = (err) => {
+                        URL.revokeObjectURL(url);
+                        reject(new Error('图片加载失败'));
+                    };
+                    img.src = url;
+                });
+
+                // 转换为PNG Blob
+                const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 1.0));
+
+                // 方法1：使用Clipboard API复制到剪贴板
+                if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+                    try {
+                        const clipboardItem = new ClipboardItem({ 'image/png': pngBlob });
+                        await navigator.clipboard.write([clipboardItem]);
+                        toast.success('PNG 图片已复制到剪贴板！可直接粘贴到聊天或文档中');
+                        return true;
+                    } catch (e) {
+                        console.warn('Clipboard API失败:', e);
+                    }
+                }
+
+                // 方法2：降级为下载PNG
+                downloadBlob(pngBlob, `${chart.type}_${Date.now()}.png`);
+                toast.success('浏览器不支持直接复制图片，已下载PNG');
+                return true;
+
+            } catch (error) {
+                console.error('复制图片失败:', error);
+                return false;
+            }
+        };
+
+        const downloadBlob = (blob, filename) => {
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = `${chart.type}_${Date.now()}.png`;
-            a.style.display = 'none';
-            document.body.appendChild(a);
+            a.href = url;
+            a.download = filename;
             a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(downloadUrl);
-            toast.success('图片已下载（浏览器不支持直接复制图片）');
+            URL.revokeObjectURL(url);
+        };
 
-        } catch (error) {
-            console.error('复制图片失败:', error);
-            // 最终降级：复制SVG代码
+        // 尝试复制PNG，如果失败则复制SVG代码
+        const success = await copyAsPng();
+        if (!success) {
             try {
                 await navigator.clipboard.writeText(svgCode);
                 toast.success('无法复制图片，已复制SVG代码到剪贴板');
@@ -632,9 +651,14 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                                                 </div>
                                             )}
 
-                                            {svg && (
+{svg && (
                                                 <div
-                                                    className="w-full h-full flex items-center justify-center"
+                                                    className="w-full overflow-auto"
+                                                    style={{
+                                                        display: 'block',
+                                                        width: '100%',
+                                                        minHeight: '200px'
+                                                    }}
                                                     dangerouslySetInnerHTML={{ __html: svg }}
                                                 />
                                             )}
@@ -647,75 +671,90 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                 </div>
             )}
 
-            {/* 预览模态框 */}
+            {/* 全屏预览 - 美化版 */}
             {showPreview && previewChart && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-                    <div className={`
-                        rounded-3xl max-w-6xl w-full max-h-[95vh] overflow-hidden
-                        border-2 shadow-2xl
-                        ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-purple-200'}
-                    `}>
-                        {/* 标题栏 */}
-                        <div className={`
-                            flex items-center justify-between px-6 py-4
-                            ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-purple-50 border-purple-100'}
-                            border-b
-                        `}>
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-xl ${colorMap[CHART_TYPES_CONFIG.find(c => c.id === previewChart.type)?.color || 'blue']}`}>
-                                    <BarChart3 className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold">
-                                        {CHART_TYPES_CONFIG.find(c => c.id === previewChart.type)?.name || previewChart.type}
-                                    </h3>
-                                    <p className="text-xs text-gray-500">Mermaid 图表</p>
-                                </div>
+                <div 
+                    className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 cursor-auto"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setShowPreview(false);
+                    }}
+                >
+                    {/* 顶部渐变标题栏 */}
+                    <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-r from-purple-900/80 via-pink-900/80 to-purple-900/80 backdrop-blur-md border-b border-white/10 z-20 flex items-center justify-between px-6">
+                        <div className="flex items-center gap-4">
+                            <div className={`p-2.5 rounded-xl bg-gradient-to-br ${colorMap[CHART_TYPES_CONFIG.find(c => c.id === previewChart.type)?.color || 'blue']} shadow-lg`}>
+                                <BarChart3 className="w-5 h-5 text-white" />
                             </div>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => handleCopyAsImage(previewChart)}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded-xl transition shadow-lg"
-                                >
-                                    <Image className="w-5 h-5" />
-                                    复制图片
-                                </button>
-
-                                <button
-                                    onClick={() => setShowPreview(false)}
-                                    className="p-2.5 hover:bg-gray-700 rounded-xl transition"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
+                            <div>
+                                <h3 className="text-lg font-bold text-white">
+                                    {CHART_TYPES_CONFIG.find(c => c.id === previewChart.type)?.name || previewChart.type}
+                                </h3>
+                                <p className="text-xs text-white/60">全屏预览模式</p>
                             </div>
                         </div>
+                        
+                        <div className="flex items-center gap-3">
+                            {/* 复制图片按钮 */}
+                            <button
+                                onClick={() => handleCopyAsImage(previewChart)}
+                                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl transition text-white border border-white/20 hover:border-white/30"
+                            >
+                                <Image className="w-4 h-4" />
+                                <span className="text-sm font-medium">复制图片</span>
+                            </button>
 
-                        {/* 图表内容 */}
-                        <div className="p-8 overflow-auto max-h-[calc(95vh-100px)]">
-                            <div className={`
-                                rounded-2xl p-4 shadow-xl overflow-auto min-h-[300px] flex items-center justify-center
-                                ${isDarkMode ? 'bg-gray-800' : 'bg-white'}
-                            `}>
-                                <div
-                                    className="w-full h-full flex items-center justify-center"
-                                    dangerouslySetInnerHTML={{ __html: renderedSvgs[previewChart.type] || '' }}
-                                />
-                            </div>
-
-                            {/* Mermaid 代码 */}
-                            <details className="mt-6">
-                                <summary className="cursor-pointer text-gray-400 hover:text-gray-300 flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-gray-800 transition">
-                                    <span className="text-sm font-medium">查看 Mermaid 代码</span>
-                                </summary>
-                                <pre className={`
-                                    rounded-xl p-5 mt-2 text-sm font-mono leading-relaxed overflow-x-auto
-                                    ${isDarkMode ? 'bg-gray-950 text-gray-300 border border-gray-700' : 'bg-gray-100 text-gray-800 border border-gray-200'}
-                                `}>
-                                    {previewChart.code}
-                                </pre>
-                            </details>
+                            {/* 关闭按钮 */}
+                            <button
+                                onClick={() => setShowPreview(false)}
+                                className="p-2.5 bg-white/10 hover:bg-red-500/80 text-white rounded-xl transition backdrop-blur-sm border border-white/20"
+                                title="退出全屏预览"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
+
+                    {/* 图表容器 - 带玻璃态效果 */}
+                    <div className="w-full h-full pt-16 overflow-auto flex items-start justify-center">
+                        {renderedSvgs[previewChart.type] ? (
+                            <div 
+                                className="mermaid-fullscreen-container bg-white/5 backdrop-blur-sm rounded-2xl p-8 shadow-2xl border border-white/10"
+                                dangerouslySetInnerHTML={{ __html: renderedSvgs[previewChart.type] }}
+                                style={{
+                                    display: 'block',
+                                    width: 'fit-content',
+                                    height: 'auto',
+                                    maxWidth: 'none',
+                                    minWidth: 'unset',
+                                }}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center p-8">
+                                <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                                <p className="text-white/60">图表渲染中...</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 底部代码查看器 */}
+                    <div className="absolute bottom-0 right-0 p-4 z-20">
+                        <details className="cursor-pointer">
+                            <summary className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center gap-2 px-4 py-2.5 rounded-xl transition border border-white/20 hover:border-white/30">
+                                <Code className="w-4 h-4" />
+                                <span className="text-sm font-medium">查看代码</span>
+                                <ChevronDown className="w-4 h-4" />
+                            </summary>
+                            <div className="absolute bottom-full right-0 mb-2 w-[32rem] max-h-80 overflow-auto rounded-xl shadow-2xl">
+                                <pre className="rounded-xl p-5 text-sm font-mono leading-relaxed overflow-x-auto bg-slate-900/95 backdrop-blur-sm text-emerald-400 border border-white/10">
+                                    {previewChart.code}
+                                </pre>
+                            </div>
+                        </details>
+                    </div>
+
+                    {/* 装饰性背景元素 */}
+                    <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div className="absolute bottom-20 right-20 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl pointer-events-none"></div>
                 </div>
             )}
         </div>

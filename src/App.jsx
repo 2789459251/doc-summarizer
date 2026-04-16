@@ -298,6 +298,31 @@ function App() {
         };
     }, [pollingInterval]);
 
+    // 监听全局Toast事件（用于401未授权等错误）
+    useEffect(() => {
+        const handleToastEvent = (event) => {
+            const { detail } = event;
+            if (detail) {
+                // request.js发送的detail包含type, title, message等属性
+                const toastType = detail.type || 'error';
+                const message = detail.message || detail.title || '发生错误';
+                
+                toast[toastType](message, {
+                    title: detail.title,
+                    details: detail.details,
+                    duration: detail.duration || 8000,
+                    action: detail.action
+                });
+            }
+        };
+
+        window.addEventListener('showToast', handleToastEvent);
+        
+        return () => {
+            window.removeEventListener('showToast', handleToastEvent);
+        };
+    }, [toast]);
+
     // 渲染不同模块
     const renderContent = () => {
         if (currentModule === 'home') {

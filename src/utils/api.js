@@ -142,7 +142,12 @@ export const uploadFile = async (file, onProgress) => {
             if (xhr.status >= 200 && xhr.status < 300) {
                 resolve(JSON.parse(xhr.responseText));
             } else {
-                reject(new Error(xhr.responseText || '上传失败'));
+                // 401未授权错误，特殊处理
+                if (xhr.status === 401) {
+                    reject(new Error('UNAUTHORIZED:请先登录以使用文件上传功能'));
+                } else {
+                    reject(new Error(xhr.responseText || '上传失败'));
+                }
             }
         };
 
@@ -203,7 +208,34 @@ export const getDocument = async (fileId) => {
 // ========================================
 // 6. 图表生成（智能文档理解模块）
 // ========================================
-export const generateCharts = async ({ fileId, chartTypes = [] }) => {
+// PlantUML 图表生成
+// ========================================
+
+/**
+ * 获取支持的 PlantUML 图表类型
+ */
+export const getPlantUMLTypes = async () => {
+    return request(`${API_BASE}/api/plantuml/types`);
+};
+
+/**
+ * 生成 PlantUML 图表
+ * @param {string} code - PlantUML 代码
+ * @param {string} chartType - 图表类型
+ */
+export const generatePlantUML = async (code, chartType = 'auto') => {
+    return request(`${API_BASE}/api/plantuml/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            code,
+            chart_type: chartType
+        })
+    });
+};
+
+// ========================================
+export const generateCharts = async ({ file_id, chart_types = [], user_description = '' }) => {
     // 14种图表类型
     const allChartTypes = [
         'flowchart',      // 流程图
@@ -222,12 +254,16 @@ export const generateCharts = async ({ fileId, chartTypes = [] }) => {
         'network'         // 网络图
     ];
 
-    const types = chartTypes.length > 0 ? chartTypes : allChartTypes;
+    const types = chart_types.length > 0 ? chart_types : allChartTypes;
 
     return request(`${API_BASE}/api/charts/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_id: fileId, chart_types: types })
+        body: JSON.stringify({ 
+            file_id: file_id, 
+            chart_types: types,
+            user_description: user_description  // 传递用户描述给AI
+        })
     });
 };
 
