@@ -88,6 +88,7 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
     const [uploadProgress, setUploadProgress] = useState(0);
     const [selectedCharts, setSelectedCharts] = useState(['flowchart']);
     const [generatedCharts, setGeneratedCharts] = useState([]);
+    const [failedCharts, setFailedCharts] = useState([]);  // 保存生成失败的图表
     const [renderedSvgs, setRenderedSvgs] = useState({});
     const [renderingStates, setRenderingStates] = useState({});
     const [previewChart, setPreviewChart] = useState(null);
@@ -309,6 +310,7 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                 );
 
                 setGeneratedCharts(okCharts);
+                setFailedCharts(badCharts);  // 保存失败的图表用于显示
 
                 if (badCharts.length > 0) {
                     const tip = badCharts
@@ -323,8 +325,9 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                 if (okCharts.length > 0) {
                     toast.success(`成功生成 ${okCharts.length} 个图表！`);
                 } else {
+                    // 所有图表都失败了，显示失败原因
                     toast.error('所选图表不适合用当前描述生成', {
-                        details: '请补充更具体的流程/参与者/实体/时间线等信息，或更换图表类型后重试。'
+                        details: badCharts.map(c => c.error || c.detail || '不适合生成').join('\n')
                     });
                     return;
                 }
@@ -699,16 +702,22 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
             </div>
 
             {/* 生成的图表列表 */}
-            {generatedCharts.length > 0 && (
+            {(generatedCharts.length > 0 || failedCharts.length > 0) && (
                 <div className={`${isDarkMode ? 'bg-gray-900/60' : 'bg-white'} rounded-2xl p-6 border ${isDarkMode ? 'border-gray-700/50' : 'border-gray-200'}`}>
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-xl font-semibold flex items-center gap-2">
                             <CheckCircle className="w-5 h-5 text-green-400" />
                             已生成图表 ({generatedCharts.length})
+                            {failedCharts.length > 0 && (
+                                <span className="text-sm font-normal text-orange-400">
+                                    · {failedCharts.length} 个未生成
+                                </span>
+                            )}
                         </h2>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-6">
+                        {/* 成功生成的图表 */}
                         {generatedCharts.map((chart, index) => {
                             const chartConfig = CHART_TYPES_CONFIG.find(c => c.id === chart.type);
                             const svg = renderedSvgs[chart.type];
@@ -716,7 +725,7 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
 
                             return (
                                 <div
-                                    key={index}
+                                    key={`ok-${index}`}
                                     className={`
                                         rounded-2xl p-5 border-2 transition-all duration-300
                                         ${isDarkMode ? 'bg-gray-800/50 border-gray-700/30 hover:border-gray-600/50' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}
@@ -791,6 +800,58 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                                 </div>
                             );
                         })}
+
+                        {/* 未生成的图表（显示失败原因） */}
+                        {failedCharts.map((chart, index) => {
+                            const chartConfig = CHART_TYPES_CONFIG.find(c => c.id === chart.type);
+                            const errorMsg = chart.error || chart.detail || '不适合用当前描述生成';
+
+                            return (
+                                <div
+                                    key={`fail-${index}`}
+                                    className={`
+                                        rounded-2xl p-5 border-2 border-dashed transition-all duration-300
+                                        ${isDarkMode ? 'bg-gray-800/30 border-orange-500/30 hover:border-orange-500/50' : 'bg-orange-50/50 border-orange-300/50 hover:border-orange-400'}
+                                    `}
+                                >
+                                    {/* 图表头部 */}
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-orange-500/20' : 'bg-orange-100'}`}>
+                                                <AlertCircle className={`w-5 h-5 ${isDarkMode ? 'text-orange-400' : 'text-orange-500'}`} />
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold">{chartConfig?.name || chart.type}</div>
+                                                <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                    未生成
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 错误原因 */}
+                                    <div className={`
+                                        rounded-xl p-4
+                                        ${isDarkMode ? 'bg-gray-900/50' : 'bg-white'}
+                                    `}>
+                                        <div className="flex items-start gap-3">
+                                            <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isDarkMode ? 'text-orange-400' : 'text-orange-500'}`} />
+                                            <div>
+                                                <p className={`text-sm font-medium ${isDarkMode ? 'text-orange-300' : 'text-orange-600'}`}>
+                                                    生成失败
+                                                </p>
+                                                <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    {errorMsg}
+                                                </p>
+                                                <p className={`text-xs mt-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                    提示：请修改描述后重新生成
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
@@ -852,16 +913,23 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                             </div>
                         </div>
 
-                        {/* 图表内容区 - 简洁展示 */}
-                        <div className="overflow-auto max-h-[calc(90vh-60px)] flex items-start justify-center p-4">
+                        {/* 图表内容区 - 允许完整显示，不限制高度 */}
+                        <div className="overflow-visible flex items-start justify-center p-4">
                         {renderedSvgs[previewChart.type] ? (
                             <div 
-                                className="bg-white rounded-lg shadow-lg overflow-hidden"
-                                style={{ maxWidth: '100%' }}
+                                className="bg-white rounded-lg shadow-lg"
+                                style={{ 
+                                    maxWidth: '100%',
+                                    overflow: 'visible'
+                                }}
                             >
                                 <div
                                     dangerouslySetInnerHTML={{ __html: renderedSvgs[previewChart.type] }}
-                                    style={{ display: 'block', padding: '16px' }}
+                                    style={{ 
+                                        display: 'block', 
+                                        padding: '16px',
+                                        overflow: 'visible'
+                                    }}
                                 />
                             </div>
                         ) : (
