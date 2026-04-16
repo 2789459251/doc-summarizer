@@ -13,19 +13,68 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import mermaid from 'mermaid';
 
-// 初始化 Mermaid
+// 初始化 Mermaid（优化配置，兼容11.x版本）
 mermaid.initialize({
     startOnLoad: false,
-    theme: 'dark',
+    theme: 'default',  // 使用default主题避免兼容性问题
     securityLevel: 'loose',
     fontFamily: 'Microsoft YaHei, sans-serif',
-    flowchart: { fit: true, htmlLabels: true, curve: 'linear' },
-    sequence: { diagramMarginX: 20, diagramMarginY: 20 },
-    er: { fit: true, padding: 20 },
-    gantt: { fit: true, padding: 20 },
-    pie: { textPosition: 0.75 },
-    xyChart: { fit: true, padding: 20 }
+    flowchart: { 
+        fit: true, 
+        htmlLabels: true, 
+        curve: 'linear',
+        nodeSpacing: 50,
+        rankSpacing: 50
+    },
+    sequence: { 
+        diagramMarginX: 20, 
+        diagramMarginY: 20,
+        actorMargin: 50
+    },
+    er: { 
+        fit: true, 
+        padding: 20,
+        entityPadding: 15
+    },
+    gantt: { 
+        fit: true, 
+        padding: 20,
+        titleTopMargin: 25,
+        barHeight: 30
+    },
+    pie: { 
+        textPosition: 0.75 
+    },
+    xyChart: { 
+        fit: true, 
+        padding: 20 
+    },
+    // 11.x新增配置
+    logLevel: 0,  // 减少日志输出
+    svgmaxLength: 10000  // 允许更大的SVG
 });
+
+// 清理Mermaid代码，修复常见兼容性问题
+const sanitizeMermaidCode = (code) => {
+    if (!code) return '';
+    
+    let cleaned = code;
+    
+    // 移除可能导致问题的不可见字符
+    cleaned = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    
+    // 确保换行符一致
+    cleaned = cleaned.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    
+    // 移除行尾多余空格
+    cleaned = cleaned.split('\n').map(line => line.trimEnd()).join('\n');
+    
+    // 确保指令格式正确（箭头、标签等）
+    cleaned = cleaned.replace(/<--/g, '-->');  // 修正方向
+    cleaned = cleaned.replace(/-->/g, '-->');   // 确保箭头格式正确
+    
+    return cleaned;
+};
 
 // 图表类型配置
 const CHART_TYPES_CONFIG = [
@@ -203,17 +252,48 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                 throw new Error('图表代码无效');
             }
 
-            const code = chart.code.trim();
+            let code = chart.code.trim();
             if (!code) {
                 throw new Error('图表代码为空');
             }
 
-            const { svg, error } = await mermaid.render(chartId, code);
-            
+            // 清理代码以兼容Mermaid 11.x
+            code = sanitizeMermaidCode(code);
+
+            // 先尝试直接渲染
+            let svg = null;
+            let error = null;
+
+            try {
+                const result = await mermaid.render(chartId, code);
+                svg = result.svg;
+                error = result.error;
+            } catch (renderError) {
+                // 捕获渲染错误
+                error = renderError.message || '渲染失败';
+            }
+
             if (error) {
                 // Mermaid返回了错误
                 console.error(`[Mermaid] ${chart.type} 渲染错误:`, error);
-                throw new Error(error.message || 'Mermaid语法错误');
+                
+                // 尝试简化代码再渲染一次（移除可能的格式问题）
+                const simplifiedCode = simplifyForMermaid(code);
+                if (simplifiedCode !== code) {
+                    try {
+                        const result2 = await mermaid.render(chartId + '-retry', simplifiedCode);
+                        if (!result2.error && result2.svg) {
+                            svg = result2.svg;
+                            error = null;
+                        }
+                    } catch (retryError) {
+                        console.error('[Mermaid] 重试也失败:', retryError);
+                    }
+                }
+                
+                if (error) {
+                    throw new Error(error.message || 'Mermaid语法错误');
+                }
             }
             
             if (!svg) {
@@ -257,6 +337,29 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
             return null;
         }
     }, [normalizeMermaidSvg]);
+
+    // 简化Mermaid代码以提高兼容性
+    const simplifyForMermaid = (code) => {
+        if (!code) return code;
+        
+        let simplified = code;
+        
+        // 移除所有HTML标签
+        simplified = simplified.replace(/<[^>]+>/g, '');
+        
+        // 移除markdown格式
+        simplified = simplified.replace(/\*\*/g, '');
+        simplified = simplified.replace(/__/g, '');
+        
+        // 简化箭头，确保格式正确
+        simplified = simplified.replace(/-+>/g, '-->');
+        simplified = simplified.replace(/<-+/g, '--<');
+        
+        // 移除多余的空格
+        simplified = simplified.replace(/\s+/g, ' ');
+        
+        return simplified;
+    };
 
     // 渲染所有图表
     useEffect(() => {
@@ -860,9 +963,40 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                                             )}
 
                                             {renderingState === 'error' && (
-                                                <div className="flex flex-col items-center gap-3 text-red-400 p-4 h-full justify-center">
-                                                    <AlertCircle className="w-8 h-8" />
-                                                    <span className="text-sm">渲染失败</span>
+                                                <div className={`
+                                                    flex flex-col items-center gap-4 p-6 h-full justify-center max-w-sm mx-auto text-center
+                                                    ${isDarkMode ? 'bg-red-900/20 rounded-xl border border-red-800/30' : 'bg-red-50 rounded-xl border border-red-200'}
+                                                `}>
+                                                    {/* 错误图标 */}
+                                                    <div className={`p-3 rounded-full ${isDarkMode ? 'bg-red-500/20' : 'bg-red-100'}`}>
+                                                        <AlertCircle className={`w-8 h-8 ${isDarkMode ? 'text-red-400' : 'text-red-500'}`} />
+                                                    </div>
+                                                    
+                                                    {/* 错误标题 */}
+                                                    <div>
+                                                        <p className={`font-semibold ${isDarkMode ? 'text-red-300' : 'text-red-600'}`}>
+                                                            渲染失败
+                                                        </p>
+                                                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                            图表代码存在语法错误
+                                                        </p>
+                                                    </div>
+                                                    
+                                                    {/* 错误详情（如果有） */}
+                                                    {renderingStates[`${chart.type}_error`] && (
+                                                        <div className={`
+                                                            px-3 py-2 rounded-lg text-xs font-mono max-w-full break-all
+                                                            ${isDarkMode ? 'bg-gray-900/80 text-red-300' : 'bg-white text-red-600'}
+                                                        `}>
+                                                            {renderingStates[`${chart.type}_error`].slice(0, 100)}
+                                                            {renderingStates[`${chart.type}_error`].length > 100 && '...'}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* 操作建议 */}
+                                                    <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                        💡 提示：请尝试更换描述或选择其他图表类型
+                                                    </p>
                                                 </div>
                                             )}
 
@@ -909,26 +1043,51 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                                                 </div>
                                             </div>
                                         </div>
+                                        
+                                        {/* 删除按钮 */}
+                                        <button
+                                            onClick={() => setFailedCharts(prev => prev.filter((_, i) => i !== index))}
+                                            className={`p-1.5 rounded-lg transition ${isDarkMode ? 'hover:bg-gray-700 text-gray-500' : 'hover:bg-gray-200 text-gray-400'}`}
+                                            title="移除"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
                                     </div>
 
-                                    {/* 错误原因 */}
+                                    {/* 错误原因 - 美化版 */}
                                     <div className={`
-                                        rounded-xl p-4
-                                        ${isDarkMode ? 'bg-gray-900/50' : 'bg-white'}
+                                        rounded-xl p-5 text-center
+                                        ${isDarkMode ? 'bg-gray-900/60 border border-orange-800/30' : 'bg-white border border-orange-100'}
                                     `}>
-                                        <div className="flex items-start gap-3">
-                                            <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isDarkMode ? 'text-orange-400' : 'text-orange-500'}`} />
-                                            <div>
-                                                <p className={`text-sm font-medium ${isDarkMode ? 'text-orange-300' : 'text-orange-600'}`}>
-                                                    生成失败
-                                                </p>
-                                                <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                    {errorMsg}
-                                                </p>
-                                                <p className={`text-xs mt-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                    提示：请修改描述后重新生成
-                                                </p>
-                                            </div>
+                                        {/* 状态图标 */}
+                                        <div className={`inline-flex p-3 rounded-full mb-4 ${isDarkMode ? 'bg-orange-500/10' : 'bg-orange-50'}`}>
+                                            <AlertCircle className={`w-8 h-8 ${isDarkMode ? 'text-orange-400' : 'text-orange-500'}`} />
+                                        </div>
+                                        
+                                        {/* 错误标题 */}
+                                        <p className={`text-sm font-semibold mb-2 ${isDarkMode ? 'text-orange-300' : 'text-orange-600'}`}>
+                                            {errorMsg.includes('渲染失败') ? '图表渲染失败' : '不适合生成'}
+                                        </p>
+                                        
+                                        {/* 错误详情 */}
+                                        {errorMsg && (
+                                            <p className={`
+                                                text-xs font-mono px-3 py-2 rounded-lg mb-3 max-w-full break-all
+                                                ${isDarkMode ? 'bg-gray-800/80 text-gray-400' : 'bg-gray-100 text-gray-600'}
+                                            `}>
+                                                {errorMsg.slice(0, 150)}
+                                                {errorMsg.length > 150 && '...'}
+                                            </p>
+                                        )}
+                                        
+                                        {/* 解决建议 */}
+                                        <div className={`
+                                            text-xs px-3 py-2 rounded-lg
+                                            ${isDarkMode ? 'bg-blue-900/20 text-blue-300' : 'bg-blue-50 text-blue-600'}
+                                        `}>
+                                            💡 {errorMsg.includes('渲染失败') 
+                                                ? '请尝试更换描述或选择其他图表类型' 
+                                                : '请修改描述使其包含更多具体信息后重试'}
                                         </div>
                                     </div>
                                 </div>
