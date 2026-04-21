@@ -320,18 +320,19 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                 const updated = prev.filter(c => c.type !== chart.type);
                 return updated;
             });
+            const cleanMsg = cleanErrorMessage(errorMessage);
             setFailedCharts(prev => {
                 const exists = prev.find(c => c.type === chart.type);
                 if (exists) return prev;
                 return [...prev, { 
                     ...chart, 
-                    error: `渲染失败: ${errorMessage}`,
+                    error: `渲染失败: ${cleanMsg}`,
                     detail: '图表代码可能存在语法错误，请尝试更换描述或图表类型'
                 }];
             });
             
             toast.error(`${chart.name || chart.type} 渲染失败`, {
-                details: errorMessage
+                details: cleanMsg
             });
             
             return null;
@@ -359,6 +360,30 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
         simplified = simplified.replace(/\s+/g, ' ');
         
         return simplified;
+    };
+
+    // 清理Mermaid错误消息，隐藏技术细节
+    const cleanErrorMessage = (errorMsg) => {
+        if (!errorMsg) return '未知错误';
+        
+        // 移除版本号信息
+        let cleaned = errorMsg.replace(/mermaid\s+version\s+[\d.]+/gi, '');
+        
+        // 移除"Syntax error in text"等技术细节，只保留核心错误
+        if (cleaned.toLowerCase().includes('syntax error')) {
+            return '图表语法错误';
+        }
+        
+        // 移除URL和技术栈信息
+        cleaned = cleaned.replace(/https?:\/\/[^\s]*/gi, '');
+        cleaned = cleaned.replace(/at\s+[^\n]*/gi, '');
+        
+        // 截断过长消息
+        if (cleaned.length > 100) {
+            return cleaned.substring(0, 100).trim() + '...';
+        }
+        
+        return cleaned.trim() || '图表生成失败';
     };
 
     // 渲染所有图表
@@ -729,7 +754,7 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept=".pdf,.docx,.doc,.txt,.md,.html"
+                            accept=".pdf,.docx,.doc,.txt,.md,.html,.sql"
                             onChange={handleFileUpload}
                             className="hidden"
                         />
@@ -1020,7 +1045,7 @@ const ChartGenerator = ({ uploadedFile, setUploadedFile, fileId, setFileId }) =>
                         {/* 未生成的图表（显示失败原因） */}
                         {failedCharts.map((chart, index) => {
                             const chartConfig = CHART_TYPES_CONFIG.find(c => c.id === chart.type);
-                            const errorMsg = chart.error || chart.detail || '不适合用当前描述生成';
+                            const errorMsg = cleanErrorMessage(chart.error || chart.detail || '不适合用当前描述生成');
 
                             return (
                                 <div

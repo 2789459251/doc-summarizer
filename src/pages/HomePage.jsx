@@ -96,11 +96,16 @@ const HomePage = ({
                         <p className={`text-xs mb-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                             支持多种格式 · 拖拽上传
                         </p>
-                        <button onClick={(e) => e.stopPropagation()} className={`${btnPrimary} ${
-                            isDarkMode 
-                                ? 'bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25' 
-                                : 'bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-200'
-                        }`}>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                document.getElementById('fileInput')?.click();
+                            }}
+                            className={`${btnPrimary} ${
+                                isDarkMode 
+                                    ? 'bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25' 
+                                    : 'bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-200'
+                            }`}>
                             选择文件
                         </button>
                     </div>

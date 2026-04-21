@@ -34,16 +34,16 @@ const Parse = ({
 
     // 粒度选项
     const grainularityOptions = [
-        { key: 'concise', label: '简洁', icon: '📋', desc: '快速概览', minChars: 50 },
-        { key: 'standard', label: '标准', icon: '📄', desc: '平衡信息', minChars: 100 },
-        { key: 'detailed', label: '详细', icon: '📑', desc: '完整理解', minChars: 200 }
+        { key: 'concise', label: '简洁', icon: '📋', desc: '一句话，极简概括', minChars: 10 },
+        { key: 'standard', label: '标准', icon: '📄', desc: '核心观点 + 结论', minChars: 100 },
+        { key: 'detailed', label: '详细', icon: '📑', desc: '完整逻辑 + 细节', minChars: 200 }
     ];
 
     // 粒度字数映射
     const grainularityLimits = {
-        concise: { min: 50, label: '简洁摘要' },
-        standard: { min: 100, label: '标准摘要' },
-        detailed: { min: 200, label: '详细摘要' }
+        concise: { min: 10, label: '简洁摘要（极简版）' },
+        standard: { min: 100, label: '标准摘要（常规版）' },
+        detailed: { min: 200, label: '详细摘要（完整版）' }
     };
 
     // ========== 文件上传处理 ==========
