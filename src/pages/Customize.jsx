@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { API_BASE } from '../utils/api';
 
 const Customize = () => {
     const { isDarkMode } = useTheme();
@@ -24,7 +25,7 @@ const Customize = () => {
     // 3. 后端接口：获取用户已保存的配置
     const fetchUserPreferences = async (authToken) => {
         try {
-            const response = await fetch('http://localhost:8000/api/custom-summary', {
+            const response = await fetch(`${API_BASE}/api/custom-summary`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
@@ -60,7 +61,7 @@ const Customize = () => {
             formData.append('summary_style', style);
             formData.append('purpose', purpose);
 
-            const response = await fetch('http://localhost:8000/api/custom-summary', {
+            const response = await fetch(`${API_BASE}/api/custom-summary`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}` // 携带登录令牌

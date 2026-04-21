@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { API_BASE } from '../utils/api';
 
 const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
     const { isDarkMode } = useTheme();
@@ -32,7 +33,7 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
             formData.append('username', username);
             formData.append('password', password);
 
-            const response = await fetch('http://localhost:8000/api/login', {
+            const response = await fetch(`${API_BASE}/api/login`, {
                 method: 'POST',
                 body: formData,
                 credentials: 'include'
@@ -47,7 +48,7 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
             localStorage.setItem('token', data.access_token);
             localStorage.setItem('token_type', data.token_type);
 
-            const userResponse = await fetch('http://localhost:8000/api/me', {
+            const userResponse = await fetch(`${API_BASE}/api/me`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `${data.token_type} ${data.access_token}`
@@ -58,7 +59,7 @@ const Login = ({ onLoginSuccess, onSwitchToRegister }) => {
             if (userResponse.ok) {
                 const userData = await userResponse.json();
                 localStorage.setItem('user', JSON.stringify(userData));
-                await authLogin(userData.username, password);
+                await authLogin(userData.username, password, userData);
                 onLoginSuccess && onLoginSuccess(userData);
             }
 

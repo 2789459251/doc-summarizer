@@ -2,10 +2,10 @@
 import { request } from './request';
 
 // API 基础URL - 优先从环境变量读取，支持 Vite 的 .env 配置
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // WebSocket 基础URL
-const WS_BASE = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000';
+export const WS_BASE = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000';
 
 // ========================================
 // 1. 高级摘要 (LangGraph 工作流)

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff, ArrowRight, Mail } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { API_BASE } from '../utils/api';
 
 const Register = ({ onRegisterSuccess }) => {
     const { isDarkMode } = useTheme();
@@ -45,7 +46,7 @@ const Register = ({ onRegisterSuccess }) => {
         setError('');
 
         try {
-            const response = await fetch('http://localhost:8000/api/register', {
+            const response = await fetch(`${API_BASE}/api/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),

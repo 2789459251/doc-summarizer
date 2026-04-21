@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { FileText, Upload, CheckCircle, Loader2, Sparkles, X, RefreshCw, AlertCircle } from 'lucide-react';
+import { API_BASE } from '../utils/api';
 
 const Parse = ({ 
     fileId: externalFileId, 
@@ -100,7 +101,7 @@ const Parse = ({
             const formData = new FormData();
             formData.append('file', file);
 
-            const response = await fetch('http://localhost:8000/api/upload/', {
+            const response = await fetch(`${API_BASE}/api/upload/`, {
                 method: 'POST',
                 body: formData,
                 credentials: 'include',
@@ -122,7 +123,7 @@ const Parse = ({
             
             // 首次处理文档（使用原始 /api/process 接口）
             const firstProcessResponse = await fetch(
-                `http://localhost:8000/api/process/${data.file_id}?summary_type=document&summary_length=${summaryLength}&output_language=chinese`,
+                `${API_BASE}/api/process/${data.file_id}?summary_type=document&summary_length=${summaryLength}&output_language=chinese`,
                 {
                     method: 'POST',
                     credentials: 'include',
@@ -224,7 +225,7 @@ const Parse = ({
             
             // 重新处理文档（使用新的粒度）
             const reprocessResponse = await fetch(
-                `http://localhost:8000/api/process/${targetFileId}/reprocess?summary_type=document&summary_length=${summaryLength}&output_language=chinese`,
+                `${API_BASE}/api/process/${targetFileId}/reprocess?summary_type=document&summary_length=${summaryLength}&output_language=chinese`,
                 {
                     method: 'POST',
                     credentials: 'include',
@@ -268,7 +269,7 @@ const Parse = ({
                 const token = localStorage.getItem('token');
                 const tokenType = localStorage.getItem('token_type') || 'Bearer';
                 
-                const response = await fetch(`http://localhost:8000/api/task/${taskIdToPoll}`, {
+                const response = await fetch(`${API_BASE}/api/task/${taskIdToPoll}`, {
                     method: 'GET',
                     credentials: 'include',
                     headers: { 
@@ -317,7 +318,7 @@ const Parse = ({
             const token = localStorage.getItem('token');
             const tokenType = localStorage.getItem('token_type') || 'Bearer';
             
-            const response = await fetch(`http://localhost:8000/api/summary/${taskIdToFetch}`, {
+            const response = await fetch(`${API_BASE}/api/summary/${taskIdToFetch}`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: { 

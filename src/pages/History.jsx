@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { API_BASE } from '../utils/api';
 import { FileText, Clock } from 'lucide-react'; // 可选：增加图标更美观
 
 export default function History() {
@@ -22,7 +23,7 @@ export default function History() {
         // 已登录：请求历史记录
         const fetchHistories = async () => {
             try {
-                const res = await axios.get('http://localhost:8000/api/history', {
+                const res = await axios.get(`${API_BASE}/api/history`, {
                     headers: {
                         // 优先用 localStorage 的 token，更稳定
                         'Authorization': `Bearer ${localStorage.getItem('token') || token}`

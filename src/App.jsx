@@ -16,6 +16,7 @@ import Knowledge from './pages/Knowledge';
 import Customize from './pages/Customize';
 import Profile from './pages/Profile';
 import ToastContainer, { useToast } from './components/Toast';
+import { API_BASE } from './utils/api';
 
 function App() {
     // 核心状态管理
@@ -71,7 +72,7 @@ function App() {
         try {
             const token = localStorage.getItem('token');
             const tokenType = localStorage.getItem('token_type') || 'Bearer';
-            const response = await fetch('http://localhost:8000/api/upload/', {
+            const response = await fetch(`${API_BASE}/api/upload/`, {
                 method: 'POST',
                 body: formData,
                 credentials: 'include',
@@ -102,7 +103,7 @@ function App() {
         try {
             const token = localStorage.getItem('token');
             const tokenType = localStorage.getItem('token_type') || 'Bearer';
-            const response = await fetch(`http://localhost:8000/api/document/${fileId}`, {
+            const response = await fetch(`${API_BASE}/api/document/${fileId}`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: { 'Authorization': `${tokenType} ${token}` }
@@ -159,7 +160,7 @@ function App() {
         try {
             const token = localStorage.getItem('token');
             const tokenType = localStorage.getItem('token_type') || 'Bearer';
-            const response = await fetch(`http://localhost:8000/api/process/${fileId}?summary_type=${summaryType}&summary_length=${summaryLength}&output_language=${outputLanguage}`, {
+            const response = await fetch(`${API_BASE}/api/process/${fileId}?summary_type=${summaryType}&summary_length=${summaryLength}&output_language=${outputLanguage}`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Authorization': `${tokenType} ${token}` }
@@ -189,7 +190,7 @@ function App() {
             try {
                 const token = localStorage.getItem('token');
                 const tokenType = localStorage.getItem('token_type') || 'Bearer';
-                const response = await fetch(`http://localhost:8000/api/task/${taskId}`, {
+                const response = await fetch(`${API_BASE}/api/task/${taskId}`, {
                     method: 'GET',
                     credentials: 'include',
                     headers: { 'Authorization': `${tokenType} ${token}` }
@@ -226,7 +227,7 @@ function App() {
         try {
             const token = localStorage.getItem('token');
             const tokenType = localStorage.getItem('token_type') || 'Bearer';
-            const response = await fetch(`http://localhost:8000/api/summary/${taskId}`, {
+            const response = await fetch(`${API_BASE}/api/summary/${taskId}`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: { 'Authorization': `${tokenType} ${token}` }

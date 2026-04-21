@@ -27,13 +27,23 @@ export const request = async (url, options = {}) => {
     // 发送请求
     const response = await fetch(url, mergedOptions);
 
-    // 统一处理响应
-    const data = await response.json();
+    // 读取响应体文本（处理空响应）
+    const responseText = await response.text();
+    if (!responseText) {
+        if (!response.ok) {
+            throw new Error(`请求失败 (${response.status})`);
+        }
+        return {};
+    }
+    const data = JSON.parse(responseText);
 
     // 401 未授权
     if (response.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        
+        // 通知 AuthContext 清除 user 状态（更新右上角登录状态）
+        window.dispatchEvent(new CustomEvent('auth:logout'));
         
         // 检查当前是否在错误处理中，避免循环
         if (!url.includes('/api/login') && !window.showingAuthToast) {

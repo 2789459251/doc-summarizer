@@ -1,21 +1,20 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
-// src/context/AuthContext.jsx
-const logout = () => {
-    // 清空本地存储
-    localStorage.removeItem('token');
-    localStorage.removeItem('token_type');
-    localStorage.removeItem('user');
-    // 清空 user 状态
-    setUser(null);
-};
+
 export function AuthProvider({ children }) {
     // 初始化：优先从 localStorage 恢复登录状态
     const [user, setUser] = useState(() => {
         const savedUser = localStorage.getItem('user');
         return savedUser ? JSON.parse(savedUser) : null;
     });
+    
+    // 监听 401 等场景触发的登出事件，更新右上角登录状态
+    useEffect(() => {
+        const handleAuthLogout = () => setUser(null);
+        window.addEventListener('auth:logout', handleAuthLogout);
+        return () => window.removeEventListener('auth:logout', handleAuthLogout);
+    }, []);
 
     // 登录：接收真实用户数据（不再需要模拟 username/password）
     const login = async (username, password, userData = null) => {
