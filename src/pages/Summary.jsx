@@ -82,7 +82,37 @@ const Summary = () => {
     }
   };
 
-  const handleDownload = () => { if (downloadUrl) window.open(downloadUrl, '_blank'); };
+  const handleDownload = async () => {
+    if (!downloadUrl) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const tokenType = localStorage.getItem('token_type') || 'Bearer';
+      const res = await fetch(downloadUrl, {
+        credentials: 'include',
+        headers: token ? { Authorization: `${tokenType} ${token}` } : {},
+      });
+
+      if (!res.ok) {
+        throw new Error(`下载失败 (${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const originalName = conversionFile?.name?.replace(/\.[^.]+$/, '') || 'converted-file';
+      const extension = selectedTarget === 'docx' ? 'docx' : selectedTarget;
+
+      link.href = blobUrl;
+      link.download = `${originalName}.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      setConversionMessage(error.message || '下载失败，请稍后重试');
+    }
+  };
 
   const renderActionCard = (action, featured = false) => {
     const isActive = action.id === activeActionId;
