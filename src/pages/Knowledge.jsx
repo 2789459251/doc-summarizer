@@ -5,7 +5,7 @@ import {
     FileText, RefreshCw, Trash2, AlertCircle, CheckCircle, X,
     BookOpen, Zap, ChevronRight
 } from 'lucide-react';
-import { askQuestion, multiDocAsk, uploadFile, getDocument } from '../utils/api';
+import { askQuestion, multiDocAsk, uploadFile, getDocument, knowledgeAsk } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
 
 // 扩展知识库内容
@@ -164,29 +164,33 @@ const Knowledge = ({ fileId, setFileId, toast }) => {
             let result;
             const targetFileId = qaFileId || fileId;
 
-            if (!targetFileId) {
-                throw new Error('请先上传文档或使用已上传的文档');
-            }
-
-            // 构建包含知识库上下文的增强问题
-            let enhancedQuestion = question;
-            if (selectedDomain) {
-                const domain = KNOWLEDGE_DOMAINS.find(d => d.id === selectedDomain);
-                if (domain) {
-                    // 如果选中了具体话题，添加话题上下文
-                    if (selectedTopic && domain.details?.[selectedTopic]) {
-                        enhancedQuestion = `[关于${domain.name}的${selectedTopic}]: ${question}\n\n相关知识背景: ${domain.details[selectedTopic]}`;
-                    } else {
-                        enhancedQuestion = `[${domain.name}领域]: ${question}`;
+            if (targetFileId) {
+                // 有文档：走文档 RAG 问答（增强提示词）
+                let enhancedQuestion = question;
+                if (selectedDomain) {
+                    const domain = KNOWLEDGE_DOMAINS.find(d => d.id === selectedDomain);
+                    if (domain) {
+                        if (selectedTopic && domain.details?.[selectedTopic]) {
+                            enhancedQuestion = `[关于${domain.name}的${selectedTopic}]: ${question}\n\n相关知识背景: ${domain.details[selectedTopic]}`;
+                        } else {
+                            enhancedQuestion = `[${domain.name}领域]: ${question}`;
+                        }
                     }
                 }
+                result = await askQuestion({
+                    fileId: targetFileId,
+                    question: enhancedQuestion,
+                    sessionId
+                });
+            } else {
+                // 无文档：走领域知识库问答
+                result = await knowledgeAsk({
+                    question,
+                    domainId: selectedDomain || null,
+                    topic: selectedTopic || null,
+                    sessionId
+                });
             }
-
-            result = await askQuestion({
-                fileId: targetFileId,
-                question: enhancedQuestion,
-                sessionId
-            });
 
             // 更新消息状态
             setMessages(prev => prev.map(msg =>
@@ -449,11 +453,13 @@ const Knowledge = ({ fileId, setFileId, toast }) => {
                                     <p className="text-center">
                                         {availableFileId
                                             ? '文档已加载，请开始提问'
-                                            : '请先上传文档或使用已上传的文档'
+                                            : selectedDomain
+                                                ? `已激活「${KNOWLEDGE_DOMAINS.find(d => d.id === selectedDomain)?.name}」知识库，可以直接提问`
+                                                : '选择领域知识库或上传文档后开始提问'
                                         }
                                     </p>
                                     <p className="text-xs text-gray-500 mt-2">
-                                        支持多轮对话，我会记住上下文
+                                        {availableFileId ? '支持多轮对话，我会记住上下文' : '无需上传文档，领域知识库可直接回答'}
                                     </p>
                                 </div>
                             )}
@@ -548,23 +554,28 @@ const Knowledge = ({ fileId, setFileId, toast }) => {
                                     value={inputQuestion}
                                     onChange={(e) => setInputQuestion(e.target.value)}
                                     onKeyPress={handleKeyPress}
-                                    placeholder={availableFileId ? '输入问题，按回车发送...' : '请先上传文档'}
-                                    disabled={!availableFileId}
-                                    className={`flex-1 border rounded-xl px-4 py-3 resize-none focus:outline-none disabled:opacity-50 ${isDarkMode ? 'bg-gray-800 border-gray-700 focus:border-pink-500' : 'bg-white border-gray-300 focus:border-pink-400 text-gray-900'}`}
+                                    placeholder={
+                                        availableFileId
+                                            ? '输入问题，按回车发送（基于文档回答）...'
+                                            : selectedDomain
+                                                ? `向「${KNOWLEDGE_DOMAINS.find(d => d.id === selectedDomain)?.name}」知识库提问...`
+                                                : '选择左侧领域或上传文档后提问...'
+                                    }
+                                    className={`flex-1 border rounded-xl px-4 py-3 resize-none focus:outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 focus:border-pink-500' : 'bg-white border-gray-300 focus:border-pink-400 text-gray-900'}`}
                                     rows={1}
                                 />
 
                                 {/* 发送按钮 - 白天模式白色背景+粉色边框，黑夜模式保持粉色 */}
                                 <button
                                     onClick={handleSendQuestion}
-                                    disabled={isAsking || !inputQuestion.trim() || !availableFileId}
+                                    disabled={isAsking || !inputQuestion.trim()}
                                     className={`
                                         p-3 rounded-xl transition
-                                        ${isAsking || !inputQuestion.trim() || !availableFileId
+                                        ${isAsking || !inputQuestion.trim()
                                             ? isDarkMode ? 'bg-gray-700 cursor-not-allowed opacity-50' : 'bg-gray-200 cursor-not-allowed opacity-50 text-gray-500'
                                             : isDarkMode ? 'bg-pink-600 hover:bg-pink-500' : 'bg-white border border-pink-400 hover:bg-pink-50'
                                         }
-                                        ${!isDarkMode && !(isAsking || !inputQuestion.trim() || !availableFileId) ? 'text-pink-600' : ''}
+                                        ${!isDarkMode && !(isAsking || !inputQuestion.trim()) ? 'text-pink-600' : ''}
                                     `}
                                 >
                                     {isAsking ? (
@@ -646,9 +657,10 @@ const Knowledge = ({ fileId, setFileId, toast }) => {
 
                         <div className="space-y-3">
                             {[
-                                { title: '具体提问', desc: '越具体的问题，答案越准确', num: '1' },
-                                { title: '多轮对话', desc: '可以追问深入探讨同一话题', num: '2' },
-                                { title: '选择领域', desc: '选择相关领域可获得更专业的回答', num: '3' }
+                                { title: '直接提问', desc: '选择领域后无需上传文档，可直接提问', num: '1' },
+                                { title: '具体提问', desc: '越具体的问题，答案越准确', num: '2' },
+                                { title: '文档增强', desc: '上传文档后基于文档内容回答更精准', num: '3' },
+                                { title: '选择话题', desc: '选中具体话题，回答聚焦于该子领域', num: '4' }
                             ].map((item) => (
                                 <div key={item.num} className={`flex items-start gap-3 p-3 rounded-lg ${isDarkMode ? 'bg-gray-800/50' : 'bg-orange-50'}`}>
                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-pink-100 text-pink-500'}`}>{item.num}</div>
@@ -665,12 +677,30 @@ const Knowledge = ({ fileId, setFileId, toast }) => {
                     <div className={`rounded-2xl p-6 border ${isDarkMode ? 'bg-gray-900/60 border-gray-700/50' : 'bg-white border-orange-300'}`}>
                         <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? '' : 'text-pink-500'}`}>示例问题</h2>
                         <div className="space-y-2">
-                            {[
-                                '这篇文档的主要观点是什么？',
-                                '总结文档的核心内容',
-                                '有哪些关键数据和结论？',
-                                '文档的结构是怎样的？'
-                            ].map((q, i) => (
+                            {(availableFileId
+                                ? [
+                                    '这篇文档的主要观点是什么？',
+                                    '总结文档的核心内容',
+                                    '有哪些关键数据和结论？',
+                                    '文档的结构是怎样的？'
+                                ]
+                                : selectedDomain === 'cs'
+                                    ? ['动态规划和贪心算法有什么区别？', 'TCP三次握手的过程是什么？', '解释进程和线程的区别']
+                                    : selectedDomain === 'medical'
+                                        ? ['发热的常见原因有哪些？', 'RCT随机对照试验是什么？', 'HbA1c指标的临床意义']
+                                        : selectedDomain === 'law'
+                                            ? ['合同无效的条件有哪些？', '什么是诉讼时效？', '如何分析资产负债表']
+                                            : selectedDomain === 'science'
+                                                ? ['热力学第二定律讲的是什么？', 'DNA的中心法则是什么？', '牛顿三定律的内容']
+                                                : selectedDomain === 'business'
+                                                    ? ['什么是波特五力模型？', '解释ROE和ROA的含义', '什么是精益生产']
+                                                    : [
+                                                        '请解释快速排序算法',
+                                                        '什么是TCP三次握手？',
+                                                        '合同无效的条件有哪些？',
+                                                        '热力学第二定律是什么？'
+                                                    ]
+                            ).map((q, i) => (
                                 <button
                                     key={i}
                                     onClick={() => {

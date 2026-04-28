@@ -73,6 +73,18 @@ export const multiDocAsk = async ({ fileIds, question, sessionId = 'multi' }) =>
     });
 };
 
+// 领域知识库问答（无需上传文档）
+export const knowledgeAsk = async ({ question, domainId = null, topic = null, sessionId = 'knowledge' }) => {
+    const params = { question, session_id: sessionId };
+    if (domainId) params.domain_id = domainId;
+    if (topic) params.topic = topic;
+    return request(`${API_BASE}/api/qa/knowledge-ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params)
+    });
+};
+
 // WebSocket 实时问答
 export const createQAWebSocket = (sessionId, callbacks) => {
     const ws = new WebSocket(`ws://localhost:8000/ws/qa/${sessionId}`);
